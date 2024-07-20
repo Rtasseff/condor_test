@@ -153,6 +153,7 @@ dependencies:
   - panel=1.4.4=py311hca03da5_0
   - param=2.1.1=py311hca03da5_0
   - parso=0.8.3=pyhd3eb1b0_0
+  - patsy=0.5.6=py311hca03da5_0
   - peewee=3.17.6=py311h5c455b8_0
   - pexpect=4.8.0=pyhd3eb1b0_3
   - pillow=10.3.0=py311h80987f9_0
@@ -213,6 +214,7 @@ dependencies:
   - soupsieve=2.5=py311hca03da5_0
   - sqlite=3.45.3=h80987f9_0
   - stack_data=0.2.0=pyhd3eb1b0_0
+  - statsmodels=0.14.2=py311hb9f6ed7_0
   - tenacity=8.2.2=py311hca03da5_0
   - tensorboard=2.12.1=py311hca03da5_0
   - tensorboard-data-server=0.7.0=py311ha6e5c4f_0
@@ -246,7 +248,7 @@ dependencies:
   - xz=5.4.6=h80987f9_1
   - yaml=0.2.5=h1a28f6b_0
   - yarl=1.9.3=py311h80987f9_0
-  - yfinance=0.2.40=pyhd8ed1ab_0
+  - yfinance=0.2.41=pyhd8ed1ab_0
   - zeromq=4.3.5=h313beb8_0
   - zlib=1.2.13=hfb2fe0b_6
   - zstd=1.5.5=hd90d995_2
