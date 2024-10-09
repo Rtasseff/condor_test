@@ -40,7 +40,7 @@ def assetHist_CSV(path, dateH='Date', priceH='Adj Close**',
     plt.title(assetN+' Pricing History')
     plt.show()
 
-    return data
+    return data[dateH].to_numpy(), data[priceH].to_numpy()
     
 
 
