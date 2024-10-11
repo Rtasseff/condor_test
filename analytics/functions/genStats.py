@@ -127,3 +127,27 @@ def fit_simp_model(x,y,maxPolyOrder):
 
 
     return rsqAdjBest, nameBest, modelBest, yHatBest
+
+def acf(x,fracLag = 0.33,ci=95):
+    """Calcualte the auto corelation function af an 
+    *evenly spaced* sequance of data, x,
+    with a confidence interval, ci percent.
+
+    :param x:   float array, consecutive and evenly spaced (in time) data points
+    :param fracLag: float, maximum lag determined by fraction full time course
+    :param ci:  float, percent confidence bounds to report
+
+    :return acf:    float array, auto correlation function values
+    :return lags:   float array, lags corresponding to acf (currently 0, 1, ..., int(n*fracLag))
+    :return acfConf:    float array, acf upper ([:,0]) and lower ([:,1]) acf ci values corresponding to returned acf array
+    """
+
+    n = len(x)
+    # maximum lag considered is % of total 
+    maxLag = int(fracLag*n)
+
+    # Well accepted method
+    acf, acfConf = stattools.acf(x,alpha=(1-0.95),nlags=maxLag)
+    lags = np.arange(n)
+
+    return acf, lags, acfConf
