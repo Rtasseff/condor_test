@@ -142,12 +142,14 @@ def acf(x,fracLag = 0.33,ci=95):
     :return acfConf:    float array, acf upper ([:,0]) and lower ([:,1]) acf ci values corresponding to returned acf array
     """
 
-    n = len(x)
     # maximum lag considered is % of total 
+    n = len(x)
     maxLag = int(fracLag*n)
 
-    # Well accepted method
-    acf, acfConf = stattools.acf(x,alpha=(1-0.95),nlags=maxLag)
-    lags = np.arange(n)
+    # For now just use a built-in, well accepted method
+    acf, acfConf = stattools.acf(x,alpha=(1-ci/100),nlags=maxLag,missing='conservative')
+
+    # final lags are just consecutive time points
+    lags = np.arange(len(acf))
 
     return acf, lags, acfConf
