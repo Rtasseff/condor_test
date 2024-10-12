@@ -8,7 +8,7 @@ from statsmodels.tools import add_constant
 from statsmodels.tsa import stattools
 
 
-def run_model(X,y):
+def _run_model(X,y):
     # statsmodels ordinary least squares regression model
     regr = OLS(y, X, missing='drop').fit()
     ic = regr.bic
@@ -18,13 +18,12 @@ def run_model(X,y):
     return ic, rsq, yHat, regr
 
 def x2X(x,modelName):
-
     # parse the model name 
     words = modelName.split(" ")
 
     if words[0] == 'Polynomial':
         polyOrder = int(words[2])
-        for order in range(polyOrder):
+        for order in range(1,polyOrder+1):
             # Create X matrix
             if order == 1:
                 X = add_constant(x.reshape(-1, 1))
@@ -32,10 +31,10 @@ def x2X(x,modelName):
                 X = np.c_[X, x**order]
 
 
-    elif words[0] == 'Exp Function':
+    elif words[0] == 'Exp':
         X = add_constant(x.reshape(-1, 1))
 
-    elif words[0] == 'Log Function':
+    elif words[0] == 'Log':
         X = add_constant(np.log(x+1).reshape(-1, 1))
 
     else:
@@ -44,7 +43,7 @@ def x2X(x,modelName):
 
 
 
-def fit_simp_model(x,y,maxPolyOrder):
+def fit_simp_model(x, y, maxPolyOrder):
     """Given an array, x, of independant variables and 
     a corrisponding array, y, of dependant variables,
     we cycle through several simple models to select the best
@@ -89,7 +88,7 @@ def fit_simp_model(x,y,maxPolyOrder):
         # Create X matrix
         X = x2X(x,name)
         
-        ic, rsqAdj, yHat, model = run_model(X,y)
+        ic, rsqAdj, yHat, model = _run_model(X,y)
         
         if rsqAdj > rsqAdjBest:
             rsqAdjBest = rsqAdj
@@ -104,7 +103,7 @@ def fit_simp_model(x,y,maxPolyOrder):
     name = 'Exp Function'
 
     X = x2X(x,name)
-    ic, rsqAdj, yHatLog, model = runModel(X,np.log(y))
+    ic, rsqAdj, yHatLog, model = _run_model(X,np.log(y))
     
     if rsqAdj > rsqAdjBest:
         rsqAdjBest = rsqAdj
@@ -117,7 +116,7 @@ def fit_simp_model(x,y,maxPolyOrder):
     name = 'Log Function'
 
     X = x2X(x,name)
-    ic, rsqAdj, yHat, model = run_model(X,y)
+    ic, rsqAdj, yHat, model = _run_model(X,y)
 
     if rsqAdj > rsqAdjBest:
         rsqAdjBest = rsqAdj
