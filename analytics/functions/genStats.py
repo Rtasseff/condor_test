@@ -6,6 +6,7 @@ import numpy as np
 from statsmodels.regression.linear_model import OLS
 from statsmodels.tools import add_constant
 from statsmodels.tsa import stattools
+from scipy import stats
 
 
 def _run_model(X,y):
@@ -199,5 +200,39 @@ def find_samp_freq(x, cutoff=0.05, period=21,ci=95, fracLag = 0.1):
             break
 
     return sampFreq
+
+def MAD
+
+def disper(x,method='MAD'):
+    """Calculate the statistical dispersion of 
+    the data set, x.
+
+    :param x:   float array, data set
+    :param method:  str, method used to calculate
+        Possibilities
+        MAD (default)   Median Absolute Deviation with 
+                        correction factor for normality
+        Quant           Determines ordered rank of the 
+                        abs deviation and returns the upper
+                        third (highest 33%th%) threshold
+        Normal          Assumes normal distribution and 
+                        returns the standard deviation
+
+    :return sigma:  float, spread of data compared to data centroid
+    """
+
+    if method=='MAD':
+        sigma = stats.median_abs_deviation(x,scale='normal')
+    elif method=='Quant':
+        abDev = np.sort(np.abs(x-np.median(x)))
+        sigma = abDev[int(len(x)*.6666)] 
+    elif: method=='Normal':
+        sigma = np.std(x)
+    else:
+        raise Exception('Model name not known: '+modelName)
+
+    return sigma
+
+
     
         
