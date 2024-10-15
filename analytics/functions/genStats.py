@@ -9,7 +9,7 @@ from statsmodels.tsa import stattools
 from scipy import stats
 
 
-def _run_model(X,y):
+def fit_model(X,y):
     # statsmodels ordinary least squares regression model
     regr = OLS(y, X, missing='drop').fit()
     ic = regr.bic
@@ -43,6 +43,25 @@ def x2X(x,modelName):
     return X
 
 
+def run_model(x,model,modelName):
+    """Run the OLS model, model, of type modelName on
+    the dependant variable, x, and return the predicted 
+    or dependant values, y. Note that the independant
+    variable will be transformed into a design matrix
+    internall based on the modelName.
+
+    :param x:   float array, 1D array for independant varriable
+    :param model:   object, results from running statsmodels's
+                    OLS.fit() method
+    :param modelName:   str, name of model, model type, internal 
+                        convention
+
+    return y:   float array, 1D array for predictions of model, 
+                dependnat variable
+    """
+    y = model.predict(model.params,x2X(x,modelName))
+
+    return y
 
 def fit_simp_model(x, y, maxPolyOrder):
     """Given an array, x, of independant variables and 
@@ -89,7 +108,7 @@ def fit_simp_model(x, y, maxPolyOrder):
         # Create X matrix
         X = x2X(x,name)
         
-        ic, rsqAdj, yHat, model = _run_model(X,y)
+        ic, rsqAdj, yHat, model = fit_model(X,y)
         
         if rsqAdj > rsqAdjBest:
             rsqAdjBest = rsqAdj
@@ -104,7 +123,7 @@ def fit_simp_model(x, y, maxPolyOrder):
     name = 'Exp Function'
 
     X = x2X(x,name)
-    ic, rsqAdj, yHatLog, model = _run_model(X,np.log(y))
+    ic, rsqAdj, yHatLog, model = fit_model(X,np.log(y))
     
     if rsqAdj > rsqAdjBest:
         rsqAdjBest = rsqAdj
@@ -117,7 +136,7 @@ def fit_simp_model(x, y, maxPolyOrder):
     name = 'Log Function'
 
     X = x2X(x,name)
-    ic, rsqAdj, yHat, model = _run_model(X,y)
+    ic, rsqAdj, yHat, model = fit_model(X,y)
 
     if rsqAdj > rsqAdjBest:
         rsqAdjBest = rsqAdj
@@ -201,7 +220,6 @@ def find_samp_freq(x, cutoff=0.05, period=21,ci=95, fracLag = 0.1):
 
     return sampFreq
 
-def MAD
 
 def disper(x,method='MAD'):
     """Calculate the statistical dispersion of 
@@ -210,23 +228,32 @@ def disper(x,method='MAD'):
     :param x:   float array, data set
     :param method:  str, method used to calculate
         Possibilities
-        MAD (default)   Median Absolute Deviation with 
-                        correction factor for normality
-        Quant           Determines ordered rank of the 
-                        abs deviation and returns the upper
-                        third (highest 33%th%) threshold
-        Normal          Assumes normal distribution and 
-                        returns the standard deviation
+            MAD (default)   Median Absolute Deviation with 
+                            correction factor for normality
+            Percentile      Determines ordered rank of the 
+                            abs deviation and returns the upper
+                            percentile threshold (32th highest 
+                            value) 
+            Normal          Assumes normal distribution and 
+                            returns the standard deviation
 
     :return sigma:  float, spread of data compared to data centroid
+
+    Note: they way these are defined is for a symetric dispersion
+    above and below the centroid or expected value.
+
+    Note: Nan values are removed prior to calculation
     """
+
+    # remove nans
+    x = x[~np.isnan(x)]
 
     if method=='MAD':
         sigma = stats.median_abs_deviation(x,scale='normal')
     elif method=='Quant':
         abDev = np.sort(np.abs(x-np.median(x)))
-        sigma = abDev[int(len(x)*.6666)] 
-    elif: method=='Normal':
+        sigma = abDev[int(len(x)*.68)] 
+    elif method=='Normal':
         sigma = np.std(x)
     else:
         raise Exception('Model name not known: '+modelName)
