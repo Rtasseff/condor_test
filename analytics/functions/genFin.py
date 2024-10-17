@@ -100,3 +100,51 @@ def prices2returnExp(x,period,metric='Relative', method='Robust'):
     return(rExp)
 
 
+def flag_dev_event(time,price,priceTrend,thresh):
+    """Move through the time series, (time ,price), 
+    and flag the deviation events, values that the 
+    price deviates from the price trend by a given 
+    threshold. 
+
+    :param t:   datetime array, n time points for time series data
+    :param price:   float array, n prices for time series data
+    :param priceTrend:  float array, n predicted trend values for 
+                        prices in time series data
+    :param thresh:  float, threshold value for flagable deviation
+    
+    :return eventInd:   int list, m index values corresponding to 
+                        the index, i, in array t at which a deviation 
+                        event occured: |price_i-priceTrend_i|>thresh
+    :return eventTime:  datetime list, m time points at which a deviation
+                        event occured
+    :return eventLength:    timedelta('ns') list, m lenghts in nanoseconds, 
+                            corresponding to each deviation event
+    """
+    n = len(time)
+    value = np.abs(price-priceTrend)
+    eventTime=[]
+    eventInd=[]
+    eventLength=[]
+    started=False 
+    for i in range(n):
+        if (value[i]>=thresh) and (started==False):
+            # deviation past threshold, start timer
+            started=True
+            # track when this event started
+            startTime=time[i]
+            # record
+            eventTime.append(time[i])
+            eventInd.append(i)
+
+        elif started and (((value[i]<thresh) and (started==True)) or i==(n-1)):
+            # deviation under threshold threshold or series end, end timer
+            # note: logic writen so events only end after they started
+            # note: logic writen to end open events at end of time series
+            started=False
+            # get length of event that just ended
+            endTime=time[i]
+            # record
+            eventLength.append(endTime-startTime)
+            
+
+    return eventInd, eventTime, eventLength
