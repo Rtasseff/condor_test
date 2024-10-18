@@ -99,6 +99,13 @@ def prices2returnExp(x,period,metric='Relative', method='Robust'):
     rExp = returnExp(r, method=method)
     return(rExp)
 
+def dev(price,exp):
+    """ Give the deviation of the actual price, price,
+    from the expected price, exp, relative to the 
+    expected price.
+    """
+    dev = (price - exp)/exp
+    return dev
 
 def flag_dev_event(time,price,priceTrend,thresh):
     """Move through the time series, (time ,price), 
@@ -121,7 +128,7 @@ def flag_dev_event(time,price,priceTrend,thresh):
                             corresponding to each deviation event
     """
     n = len(time)
-    value = np.abs(price-priceTrend)
+    value = np.abs(dev(price,priceTrend))
     eventTime=[]
     eventInd=[]
     eventLength=[]
@@ -145,6 +152,7 @@ def flag_dev_event(time,price,priceTrend,thresh):
             endTime=time[i]
             # record
             eventLength.append(endTime-startTime)
+
             
 
     return eventInd, eventTime, eventLength
