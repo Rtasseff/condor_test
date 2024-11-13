@@ -1,7 +1,7 @@
 # general finance functions for Condor workflows
 
 import numpy as np
-import .genStats as stats
+from . import genStats
 
 def _return(x0,xi,metric):
     """Calculate return given price x at 0 and i.
@@ -68,12 +68,9 @@ def returnExp(r, method='Robust'):
             Normal              assume normal dist, mean of set
     :return rExp:   float, expected value of return set
     """
-    if method=='Robust':
-        rExp = np.median(r)
-    elif method=='Normal':
-        rExp = np.mean(r)
-    else:
-        raise Exception('Method not known: '+method)
+    
+    rExp = genStats.expected(r,method=method)
+
     return rExp
 
 def returnDisp(r, method='Robust'):
@@ -89,11 +86,9 @@ def returnDisp(r, method='Robust'):
     """
     if method=='Robust':
         # currently assuming MAD for robust, other options exist
-        rDisp = stats.disper(r,method='MAD')
-    elif method=='Normal':
-        rDisp = stats.disper(r,method=method)
-    else:
-        raise Exception('Method not known: '+method)
+        method='MAD'
+
+    rDisp = genStats.disper(r,method=method)
     return rDisp
 
 def calc_return_prop(r,method='Robust'):
@@ -246,3 +241,80 @@ def calcRunningReturns(prices,ci=95,maxHoldFrac=0.666,metric='Relative'):
         lags = np.append(lags,lag)
         
     return returns, np.c_[confup,confdn], lags
+
+def calc_period_error(r,pMin,pMax,actDelta,scale='None',method='robust'):
+    """Calculate the mean 'error' for a range of 
+    period lengths, pMin to pMax, of the predicted 
+    return compared to the actual return.
+    For a set of evenly spaced consecutive returns, r.
+    Here the predicted return is the expected value
+    of all the returns within a period and 
+    the actual return is the return at some point, 
+    actDelta steps, in the future.
+
+    The error is the squared difference between
+    actual and predicted over some scaling factor,
+    scale.
+
+    the errors are averaged over history, that is
+    all possible sequences of returns within the 
+    array of returns.
+
+    Every possible period within the range is tested 
+    one time step at a time.
+
+    :param r:   float array, evenly spaced sequance of return values
+    :param pMin:    int, starting period
+    :param pMax:    int, ending period
+    :actDelta:  int, number of time steps after the return sequence
+        to use as an actual return
+    :param scale:   str, type of scaleing factor to use
+        possibilities
+            None    no factor (ie 1)
+            Expected    scale by the expected (predicted) return
+            Disp    scale by the disperion of the returns used to 
+                calculated the expected return
+    :param method:    str, what method to use,
+        Possibilities
+            Robust (default)    robsut statistics - no dist assumption 
+            Normal              assume normal dist
+    :return error:  float array, errors 
+    """
+
+    n = len(r)
+    error = np.array([])
+
+    # loop through all possible period lengths
+    for period in range(pMin,pMax,1):
+        # loop through all periods within the return sequence
+        tmpError = []
+        for j in range(period,n-actDelta,1):
+            # get the sequence of returns
+            rSeq = r[j-period:j]
+            # get the future or 'actual' return
+            rAct = r[j+actDelta]
+            # get the properties for this sequence of returns
+            rExp, rDisp = calc_return_prop(rSeq,method=method)
+            # determine scaling factor for denominator
+            if scale == 'None':
+                denom = 1
+            elif scale == 'Expected':
+                denom = rExp
+            elif scale == 'Disp':
+                denom = rDisp
+            else:
+                raise Exception('No scaling factor for '+scale)
+
+            # calculate and append error
+            tmp = ((rExp-rAct) / denom)**2
+            tmpError.append(tmp)
+
+        # calculate and append the mean error
+            
+        error = np.append(error,np.mean(tmpError))
+
+    return error
+
+
+
+

@@ -260,6 +260,30 @@ def disper(x,method='MAD'):
 
     return sigma
 
+def expected(x, method='Robust'):
+    """Calculate the expected value given a
+    set of values,x.
+
+    :param x:   float array, values
+    :param method:  str, what method to use,
+        Possibilities
+            Robust (default)    robsut statistics, median of set
+            Normal              assume normal dist, mean of set
+    :return xExp:   float, expected value of return set
+
+    Note: nan values are removed
+    """
+    # remove nans
+    x = x[~np.isnan(x)]
+
+    if method=='Robust':
+        xExp = np.median(x)
+    elif method=='Normal':
+        xExp = np.mean(x)
+    else:
+        raise Exception('Method not known: '+method)
+    return xExp
+
 
     
         
