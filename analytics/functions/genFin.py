@@ -1,6 +1,7 @@
 # general finance functions for Condor workflows
 
 import numpy as np
+import .genStats as stats
 
 def _return(x0,xi,metric):
     """Calculate return given price x at 0 and i.
@@ -57,7 +58,7 @@ def returns(x,period=21,metric='Relative'):
 
 
 def returnExp(r, method='Robust'):
-    """Calculate the expected return given given a
+    """Calculate the expected return given a
     set of returns,r.
 
     :param r:   float array, precalculated returns
@@ -74,6 +75,49 @@ def returnExp(r, method='Robust'):
     else:
         raise Exception('Method not known: '+method)
     return rExp
+
+def returnDisp(r, method='Robust'):
+    """Calculate the dispersion of returns given a
+    set of returns,r.
+
+    :param r:   float array, precalculated returns
+    :param method:  str, what method to use,
+        Possibilities
+            Robust (default)    robsut statistics, MAD normal adjusted 
+            Normal              assume normal dist, standard deviation
+    :return rDisp:   float, dispersion value of return set
+    """
+    if method=='Robust':
+        # currently assuming MAD for robust, other options exist
+        rDisp = stats.disper(r,method='MAD')
+    elif method=='Normal':
+        rDisp = stats.disper(r,method=method)
+    else:
+        raise Exception('Method not known: '+method)
+    return rDisp
+
+def calc_return_prop(r,method='Robust'):
+    """Calculate the key properties of a set of returns,r.
+    This will be the expected value and the measure of 
+    disspersion, which can be used as risk.
+    
+    See supporting methods for more comments:
+    calls returnExp for the expected value
+    calls returnDisp for the dispersion metric 
+
+    :param r:   float array, precalculated returns
+    :param method:  str, what method to use,
+        Possibilities
+            Robust (default)    robsut statistics - no dist assumption 
+            Normal              assume normal dist
+    :return rExp:   float, expected value of return set
+    :return rDisp:   float, dispersion value of return set
+    """
+    rExp = returnExp(r,method=method)
+    rDisp = returnDisp(r,method=method)
+    return rExp, rDisp
+ 
+
 
 def prices2returnExp(x,period,metric='Relative', method='Robust'):
     """Convert array of prices,x, to an array of returns.
@@ -156,3 +200,49 @@ def flag_dev_event(time,price,priceTrend,thresh):
             
 
     return eventInd, eventTime, eventLength
+
+def calcRunningReturns(prices,ci=95,maxHoldFrac=0.666,metric='Relative'):
+    """Given evenly spaced historical pricing data, prices, 
+    we calculate the expected return and confidence interval,
+    ci, running over increasinglly longer hold times.
+
+    Note the confidence interval contains ci percent
+    of all the returns found over the history
+
+
+    :param prices:  float array, consecutive historical prices, evenly spaced
+    :param ci:  float, percentage used for confidence interval 
+    :param metric:  str, what type of return, 
+        Possibilities
+            Relative (default)      ( x_[t=period] - x_0 ) / x_0
+            Delta                   x_[t=period] - x_0 )
+            Simple                  x_[t=period] / x_0
+            Log                     log( x_[t=period] / x_0 )
+    """
+
+    
+    n = len(x)
+    returns = np.array([])
+    confup = np.array([])
+    confdn = np.array([])
+    lags = np.array([])
+    
+    for lag in range(int(n*maxHoldFrac)):
+        
+        temp = []
+        for j in range(0,n-lag,1):
+            temp.append(_return(x[j],x[j+lag],metric=metric))
+            
+        temp = np.sort(temp)
+        m = len(temp)
+        # calculate the ci limit around 50%
+        ciLim = 0.5 - (1-(ci/100.0))/2.0
+        indUp = int(m/2) + int(m*ciLim)
+        indDn = int(m/2) - int(m*ciLim)
+
+        returns = np.append(returns,np.median(temp))
+        confup = np.append(confup,temp[indUp])
+        confdn = np.append(confdn,temp[indDn])
+        lags = np.append(lags,lag)
+        
+    return returns, np.c_[confup,confdn], lags
