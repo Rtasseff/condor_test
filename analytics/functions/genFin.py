@@ -242,7 +242,7 @@ def calcRunningReturns(prices,ci=95,maxHoldFrac=0.666,metric='Relative'):
         
     return returns, np.c_[confup,confdn], lags
 
-def calc_period_error(r,pMin,pMax,actDelta,scale='None',method='robust'):
+def calc_period_error(r,pMin,pMax,actDelta,scale='None',method='Robust'):
     """Calculate the mean 'error' for a range of 
     period lengths, pMin to pMax, of the predicted 
     return compared to the actual return.
@@ -287,31 +287,41 @@ def calc_period_error(r,pMin,pMax,actDelta,scale='None',method='robust'):
     # loop through all possible period lengths
     for period in range(pMin,pMax,1):
         # loop through all periods within the return sequence
-        tmpError = []
+        tmpError = np.array([])
         for j in range(period,n-actDelta,1):
-            # get the sequence of returns
-            rSeq = r[j-period:j]
             # get the future or 'actual' return
             rAct = r[j+actDelta]
-            # get the properties for this sequence of returns
-            rExp, rDisp = calc_return_prop(rSeq,method=method)
-            # determine scaling factor for denominator
-            if scale == 'None':
-                denom = 1
-            elif scale == 'Expected':
-                denom = rExp
-            elif scale == 'Disp':
-                denom = rDisp
-            else:
-                raise Exception('No scaling factor for '+scale)
+            # cant include this if rAct nan
+            if not np.isnan(rAct):
+                # get the sequence of returns
+                rSeq = r[j-period:j]
+                # get the properties for this sequence of returns
+                rExp, rDisp = calc_return_prop(rSeq,method=method)
+                # determine scaling factor for denominator
+                if scale == 'None':
+                    denom = 1
+                elif scale == 'Expected':
+                    denom = rExp
+                    # there are cases when an nan can lead
+                    # to a zero and odd cases where 
+                    # this can lead to a zero median 
+                    # need to check the robust cases
+                    if method=='Robust' and denom == 0:
+                        # in this case we will try the mean
+                        denom = np.mean(rSeq)
 
-            # calculate and append error
-            tmp = ((rExp-rAct) / denom)**2
-            tmpError.append(tmp)
+                elif scale == 'Disp':
+                    denom = rDisp
+                else:
+                    raise Exception('No scaling factor for '+scale)
+    
+                # calculate and append error
+                tmp = ((rExp-rAct) / denom)**2
+                tmpError = np.append(tmpError,tmp)
 
         # calculate and append the mean error
             
-        error = np.append(error,np.mean(tmpError))
+        error = np.append(error,genStats.expected(tmpError,method='Normal'))
 
     return error
 
