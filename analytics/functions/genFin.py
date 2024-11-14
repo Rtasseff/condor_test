@@ -196,7 +196,7 @@ def flag_dev_event(time,price,priceTrend,thresh):
 
     return eventInd, eventTime, eventLength
 
-def calcRunningReturns(prices,ci=95,maxHoldFrac=0.666,metric='Relative'):
+def calc_running_returns(prices,ci=95,maxHoldFrac=0.666,metric='Relative'):
     """Given evenly spaced historical pricing data, prices, 
     we calculate the expected return and confidence interval,
     ci, running over increasinglly longer hold times.
