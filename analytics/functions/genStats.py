@@ -256,7 +256,7 @@ def disper(x,method='MAD'):
     elif method=='Normal':
         sigma = np.std(x)
     else:
-        raise Exception('Model name not known: '+modelName)
+        raise Exception('Method name not known: '+method)
 
     return sigma
 
