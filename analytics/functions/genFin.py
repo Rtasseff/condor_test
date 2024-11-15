@@ -3,7 +3,7 @@
 import numpy as np
 from . import genStats
 
-def _return(x0,xi,metric):
+def calc_return(x0,xi,metric):
     """Calculate return given price x at 0 and i.
 
     :param x0:  float, start price
@@ -52,7 +52,7 @@ def returns(x,period=21,metric='Relative'):
     n = len(x)
     r = []
     for i in range(0,n-period,1):
-        r.append(_return(x[i],x[i+period],metric=metric))
+        r.append(calc_return(x[i],x[i+period],metric=metric))
 
     return np.array(r)
 
@@ -196,51 +196,49 @@ def flag_dev_event(time,price,priceTrend,thresh):
 
     return eventInd, eventTime, eventLength
 
-def calc_running_returns(prices,ci=95,maxHoldFrac=0.666,metric='Relative'):
+def calc_running_returns(prices,maxHoldFrac=0.666,metric='Relative',method='Robust'):
     """Given evenly spaced historical pricing data, prices, 
-    we calculate the expected return and confidence interval,
-    ci, running over increasinglly longer hold times.
-
-    Note the confidence interval contains ci percent
-    of all the returns found over the history
+    we calculate the expected return and the dispersion,
+    based on method indicated, running over increasinglly longer hold times.
 
 
     :param prices:  float array, consecutive historical prices, evenly spaced
-    :param ci:  float, percentage used for confidence interval 
     :param metric:  str, what type of return, 
         Possibilities
             Relative (default)      ( x_[t=period] - x_0 ) / x_0
             Delta                   x_[t=period] - x_0 )
             Simple                  x_[t=period] / x_0
             Log                     log( x_[t=period] / x_0 )
-    """
+    :param method:    str, what method to use,
+        Possibilities
+            Robust (default)    robsut statistics - no dist assumption 
+            Normal              assume normal dist
+     """
 
     
-    n = len(x)
+    n = len(prices)
     returns = np.array([])
-    confup = np.array([])
-    confdn = np.array([])
+    disp = np.array([])
     lags = np.array([])
+
+    # use MAD for rodust method dispersion estimate
+    if method=='Robust':
+        dispMethod = 'MAD'
+    else:
+        dispMethod = method
     
     for lag in range(int(n*maxHoldFrac)):
         
-        temp = []
+        temp = np.array([])
         for j in range(0,n-lag,1):
-            temp.append(_return(x[j],x[j+lag],metric=metric))
+            temp = np.append(temp,calc_return(prices[j],prices[j+lag],metric=metric))
             
-        temp = np.sort(temp)
-        m = len(temp)
-        # calculate the ci limit around 50%
-        ciLim = 0.5 - (1-(ci/100.0))/2.0
-        indUp = int(m/2) + int(m*ciLim)
-        indDn = int(m/2) - int(m*ciLim)
 
-        returns = np.append(returns,np.median(temp))
-        confup = np.append(confup,temp[indUp])
-        confdn = np.append(confdn,temp[indDn])
+        returns = np.append(returns,genStats.expected(temp,method=method))
+        disp = np.append(disp,genStats.disper(temp,method=dispMethod))
         lags = np.append(lags,lag)
         
-    return returns, np.c_[confup,confdn], lags
+    return returns, disp, lags
 
 def calc_period_error(r,pMin,pMax,actDelta,scale='None',method='Robust'):
     """Calculate the mean 'error' for a range of 
