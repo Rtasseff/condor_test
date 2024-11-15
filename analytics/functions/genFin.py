@@ -321,7 +321,7 @@ def calc_period_error(r,pMin,pMax,actDelta,scale='None',method='Robust'):
 
         # calculate and append the mean error
             
-        error = np.append(error,genStats.expected(tmpError,method='Normal'))
+        error = np.append(error,genStats.expected(tmpError,method=method))
 
     return error
 
