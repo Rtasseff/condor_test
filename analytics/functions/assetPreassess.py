@@ -195,3 +195,49 @@ def calc_running_returns(prices,maxHoldFrac=0.666,metric='Relative',method='Robu
         
     return returns, disp, lags
 
+def find_samp_freq(x, cutoff=0.05, period=21,ci=95, fracLag = 0.1):
+    """Finds the appropriate sampiling period for an 
+    *evenly spaced* sequance of data, x, by using the
+    autocorrelation function, genStats.acf, and the 
+    +/- cuttoff for 'near' zero to be maintained over 
+    the given period.
+
+    :param x:   float array, consecutive and evenly spaced (in time) data points
+    :param cutoff:  float, acf value considered statistically 'near' zero, default 0.05
+    :param period:  int, number of conseutive data points covering the period to maintain the cutoff
+    :param ci:  float, percentage for acf confidence interval, the estimated acf ci must contain the zero for the proceedig period of the sampiling frequency
+
+    :return sampFreq:   int, sampiling frequency, consecutive points to skip in the data sequence for a sufficently uncorrelated observations
+    """
+    
+    # get the acf using above function def
+    ac, lag, acConf = gs.acf(x,fracLag=fracLag,ci=ci)
+    
+    # prep bounds for searching for the sampFreq
+    sampFreq = 100000
+    n = len(lag)
+    
+    # start sampFreq search
+    for i in range(n-period):
+        uncorr = True
+        
+        # check over the whole period from this point
+        for j in range(period):
+
+            # check if the mean is in bounds
+            if np.abs(ac[i+j]) > cutoff: 
+                uncorr = False
+                break
+                # check if the CI bounds contain zero
+                if acConf[i+j,0] * acConf[i+j,1] > 0:
+
+                    # no go, get out
+                    uncorr = False
+                    break
+        if uncorr:
+            sampFreq = lag[i]
+            break
+
+    return sampFreq
+
+
