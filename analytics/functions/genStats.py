@@ -59,8 +59,12 @@ def run_model(x,model,modelName):
     return y:   float array, 1D array for predictions of model, 
                 dependnat variable
     """
-    y = model.predict(model.params,x2X(x,modelName))
-
+#    y = model.predict(model.params,x2X(x,modelName))
+    tmp = x2X(x,modelName)*model.params
+    y = tmp.sum(axis=1)
+    if modelName=='Exp Function':
+        y = np.exp(y)
+    
     return y
 
 def fit_simp_model(x, y, maxPolyOrder):
