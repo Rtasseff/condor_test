@@ -50,26 +50,42 @@ def returns(x,period=21,metric='Relative'):
     :return r:  float array, seris of returns using set metric  
     """
     n = len(x)
-    r = []
-    for i in range(0,n-period,1):
-        r.append(calc_return(x[i],x[i+period],metric=metric))
 
-    return np.array(r)
+    
+    # is this a vector or a matrix?
+    if len(x.shape)==1:
+        r = np.zeros(n-period)
+        # I should remove this loop and use a shifting function
+        # https://stackoverflow.com/questions/62377978/numpy-array-equivalent-of-pandas-shift-function
+        for i in range(0,n-period,1):
+            r[i] = calc_return(x[i],x[i+period],metric=metric)
+
+    elif len(x.shape)==2:
+        # just apply the 1D part of this function over all columns
+        # faster and cleaner than looping here
+        def alt_func(a): return(returns(a,period=period,metric=metric))
+        r = np.apply_along_axis(alt_func, 0, x)
+
+
+
+    return r
 
 
 def returnExp(r, method='Robust'):
     """Calculate the expected return given a
     set of returns,r.
 
-    :param r:   float array, precalculated returns
+    :param r:   float array, precalculated returns (if 2D rows=time, cols=assets)
     :param method:  str, what method to use,
         Possibilities
             Robust (default)    robsut statistics, median of set
             Normal              assume normal dist, mean of set
-    :return rExp:   float, expected value of return set
+    :return rExp:   float (float array if r is 2D), expected value of return set
     """
     
-    rExp = genStats.expected(r,method=method)
+    # added to deal with matrix
+    def alt_func(a): return(genStats.expected(a,method=method))
+    rExp = np.apply_along_axis(alt_func, 0, r)
 
     return rExp
 
@@ -88,13 +104,15 @@ def returnDisp(r, method='Robust'):
         # currently assuming MAD for robust, other options exist
         method='MAD'
 
-    rDisp = genStats.disper(r,method=method)
+    # added to deal with matrix
+    def alt_func(a): return(genStats.disper(a,method=method))
+    rDisp = np.apply_along_axis(alt_func, 0, r)
     return rDisp
 
 def calc_return_prop(r,method='Robust'):
     """Calculate the key properties of a set of returns,r.
     This will be the expected value and the measure of 
-    disspersion, which can be used as risk.
+    disspersion, which is often used as a measure of risk.
     
     See supporting methods for more comments:
     calls returnExp for the expected value

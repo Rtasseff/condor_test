@@ -54,7 +54,7 @@ def multiAssetHist_CSV(path, dateH='Date', priceH='Adj Close',
     :param priceH:  str, price header
     :param symH:    str, symbol header
     :param sep: str, seperation char
-    :return data:  pandas data frame, a matrixed table of dates vs prices
+    :return data:  pandas dataframe, a matrixed table of prices for dates vs assets
     """
 
     data = pd.read_csv(path, sep=sep)
@@ -67,6 +67,16 @@ def multiAssetHist_CSV(path, dateH='Date', priceH='Adj Close',
 
     return data
 
+def df2np(df):
+    """Convert a dataframe into a numpy data matrix, 
+    a numpy array for index and column headers.
+    in the condor workflow we have been using simple numpy arrays 
+    and not much on panads after the data is orginized .
+    To facilitate this it is easier for us to just pull out the parts.
+    We typically expect the index to be the dates and the collumns to 
+    be the asset symbols.
+    """
+    return df.to_numpy(), df.index.to_numpy(), df.columns.to_numpy()
 
 
 
