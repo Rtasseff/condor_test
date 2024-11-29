@@ -220,6 +220,94 @@ def disper(x,method='MAD'):
 
     return sigma
 
+def comad(x,y):
+    """Calculates the co-variate Median Absolute Deviation
+    <(xi-<xi>i) * (yi-<yi>i)>i> where <> denotes expectation
+    value estimated by median. 
+    :param x:   float array 1D, data set
+    :param y:   float array 1D, data set for covariant, same 
+                length as x with paired observations to x.
+    :return:    float, co-MAD of x and y, if x=y 
+                    cmmad = MAD squared
+    """
+
+    n=len(x)
+    # Normal correction factor for mad -> st dev as n -> inf given normal dist   
+    # https://www.sciencedirect.com/topics/mathematics/median-absolute-deviation
+    cor = 1.4826
+    cmadValues=np.array([])
+    xM = np.median(x)
+    yM = np.median(y)
+    # there should be a better way than to write the loop here
+    for i in range(n):
+        tmp = (x[i]-xM) * (y[i]-yM) * cor**2
+        cmadValues = np.append(cmadValues,tmp)
+    return np.median(cmadValues)
+
+
+def codisper_sq(x,method='CoMAD'):
+    """Calculate the statistical squared co-dispersion (speard or 
+    covariance) of the data set, x. For example, the Normal method 
+    simply returns the covariance matrix. 
+
+    Note: To maximize data dispite missing values observations are 
+    removed pairwise. If a vairaible has a missing (nan) observation
+    it is removed for that variable and its covariant but for that 
+    pairwise comparision only. 
+
+    :param x:   float array 2D, data set with cols as variables and 
+                rows as paired observations (e.g. same time point)
+    :param method:  str, method used to calculate
+        Possibilities
+            CoMAD (default) Co-variate Median Absolute Deviation
+                            <(x1i-<x1i>i) * (x2i-<x2i>i)>i
+                            where <> denotes expecation via median.
+                            correction factor for normality
+            Normal          Assumes normal distribution and 
+                            returns the co-variance matrix
+
+    :return cosigma:  float array 2D, dispersion of data compared to data centroid
+
+    Note: they way these are defined is for a symetric dispersion
+    above and below the centroid or expected value.
+
+    Note: Nan values are removed prior to calculation
+    """
+    # get number of variables
+    n = len(x[0,:])
+    cosigma = np.zeros((n,n))*np.nan
+    # is there a way to avoid a python loop here
+    # while still getting nan values removed pairwise only
+    for i in range(n):
+        for j in range(i,n):
+            # get vars
+            x1=x[:,i]
+            x2=x[:,j]
+            # remove nans
+            inds = ~np.isnan(x1+x2)
+            x1=x1[inds]
+            x2=x2[inds]
+
+            # calculate based on method
+            if method=='CoMAD':
+                tmp = comad(x1,x2)
+            elif method=='Normal':
+                # this calculates 3 unused variables each time
+                # the most direct way would be to repeate what 
+                # is done above in comad but use mean instead of median.
+                # But that requires extra code and explicit python loops
+                # I am not sure how they stack up in terms of speed.
+                tmp = np.cov(x1,x2)[0,1]
+            else:
+                raise Exception('Method name not known: '+method)
+
+            # place value, symetric
+            cosigma[i,j] = tmp 
+            cosigma[j,i] = tmp 
+
+    return cosigma
+
+
 def expected(x, method='Robust'):
     """Calculate the expected value given a
     set of values,x.

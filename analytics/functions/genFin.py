@@ -93,12 +93,12 @@ def returnDisp(r, method='Robust'):
     """Calculate the dispersion of returns given a
     set of returns,r.
 
-    :param r:   float array, precalculated returns
+    :param r:   float array, precalculated returns (if 2D rows=time, cols=assets)
     :param method:  str, what method to use,
         Possibilities
             Robust (default)    robsut statistics, MAD normal adjusted 
             Normal              assume normal dist, standard deviation
-    :return rDisp:   float, dispersion value of return set
+    :return rDisp:   float (float array if r is 2D), dispersion value of return set
     """
     if method=='Robust':
         # currently assuming MAD for robust, other options exist
@@ -108,6 +108,24 @@ def returnDisp(r, method='Robust'):
     def alt_func(a): return(genStats.disper(a,method=method))
     rDisp = np.apply_along_axis(alt_func, 0, r)
     return rDisp
+
+def returnCoDispSq(r,method='Robust'):
+    """Calculate the squared co-dispersion of pairs of returns given a
+    set of returns,r. For example, using the Normal method simply returns
+    the standard covariance matrix.
+
+    :param r:   float array, precalculated returns (2D rows=time, cols=assets) 
+    :param method:  str, what method to use,
+        Possibilities
+            Robust (default)    robsut statistics, sq coMAD normal adjusted 
+            Normal              assume normal dist, covariance
+    :return:    float (float array if r is 2D), dispersion value of return set
+    """
+    if method=='Robust':
+        # currently assuming Co-MAD for robust, other options exist later
+        method='CoMAD'
+
+    return genStats.codisper_sq(r,method=method)
 
 def calc_return_prop(r,method='Robust'):
     """Calculate the key properties of a set of returns,r.
