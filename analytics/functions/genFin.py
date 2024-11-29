@@ -182,6 +182,26 @@ def dev(price,exp):
     dev = (price - exp)/exp
     return dev
 
+def port_perform(weights, returnExps, returnCoDispsSq, annualizeBy='M'):
+    # *** needs comments ***
+    if annualizeBy=='None':
+        annFact = 1
+    elif annualizeBy=='M':
+        annFact = 12
+    elif annualizeBy=='D':
+        annFact = 252 # number of open trading days a year
+    else:
+        raise Exception('Unknown value to annualize by '+annualizeBy)
+
+        
+    portReturn = np.sum(returnExps * weights)
+    portDisp = np.sqrt(np.dot(weights.T, np.dot(returnCoDispSq, weights)))
+
+    portReturn *= annFact
+    portDisp *= np.sqrt(annFact) # double check this error propigation
+
+    return returns, portDisp
+
 
 
 
