@@ -3,6 +3,9 @@
 import numpy as np
 from . import genStats
 
+# a small number that could be considered zero compared to 1.0
+eps = 1e-7
+
 def calc_return(x0,xi,metric):
     """Calculate return given price x at 0 and i.
 
@@ -182,8 +185,44 @@ def dev(price,exp):
     dev = (price - exp)/exp
     return dev
 
-def port_perform(weights, returnExps, returnCoDispsSq, annualizeBy='M'):
-    # *** needs comments ***
+def port_perform(w, rExps, rCoDispSq, annualizeBy='None'):
+    """Calculates portfolio performance, i.e. overall expected return and 
+    dispersion, based on statistical metrics of the underlying assets, expected 
+    return vector and co-dispersion squared matrix (rExp and rCoDispSq) as well 
+    as the portfolio weights (w) for each asset.
+    The returns can be annualized by providing further info to annualizeBy. 
+
+    :param w:   float array, asset weights, sum must equal one
+    :param rExp:    float array, asset expected returns corrisponding to w, 
+                    same length as w
+    :param rCoDispSq:   float array 2D, estimated co-dispersion squared of 
+                        returns, nxn with n same as length w, for normally 
+                        distributed data the standard is the co-varriance 
+                        matrix
+    :param annualizeBy: str, what time frame to annualize by, which is the 
+                        time frame used to calculate the returns.
+                            Possibilities
+                                'None' (default)    Do not annualize
+                                'D'                 Annualize by day, rEXPs
+                                                    are in daily returns
+                                                    (note 253 trading days 
+                                                    in year)
+                                'M'                 Annualize by month, rExps
+                                                    are in monthly returns
+                                                    (note 21 trading days in
+                                                    month on average)
+    :return portReturn: float, expected return of the portfolio 
+    :return portDisp:   float, estimated dispersion of portfolio returns, if
+                        data is normally distributed the standard estimate is 
+                        the standard deviation, in stats common statistical 
+                        analysis this is a measure of one type of portfolio 
+                        risk
+    """
+
+    # ensure that weights add to one
+    if np.abs(1 - np.sum(w)) > eps:
+        raise Exception('Weights in w do not add to one: '+str(sum(w)))
+
     if annualizeBy=='None':
         annFact = 1
     elif annualizeBy=='M':
@@ -191,18 +230,51 @@ def port_perform(weights, returnExps, returnCoDispsSq, annualizeBy='M'):
     elif annualizeBy=='D':
         annFact = 252 # number of open trading days a year
     else:
-        raise Exception('Unknown value to annualize by '+annualizeBy)
+        raise Exception('Unknown way to annualize by '+annualizeBy)
 
         
-    portReturn = np.sum(returnExps * weights)
-    portDisp = np.sqrt(np.dot(weights.T, np.dot(returnCoDispSq, weights)))
+    portReturn = np.sum(rExps * w)
+    portDisp = np.sqrt(np.dot(w.T, np.dot(rCoDispSq, w)))
 
     portReturn *= annFact
     portDisp *= np.sqrt(annFact) # double check this error propigation
 
-    return returns, portDisp
+    return portReturn, portDisp
 
 
+def port_neg_sharpeRatio(w, rExps, rCoDispSq, riskFreeRate=0, annualizeBy=True):
+    """Return the Sharpe Ratio for a portfolio defined by its assets' weights, 
+    expected returns and squared co-dispersion matrix (w, rExps and rCoDispSq). 
+    The Sharpe ratio compares 'excess' returns to volitility. Excess returns
+    are the portfolios returns compared to a risk free, i.e.guaranteed, return
+    (riskFreeRate). Typically a US Tresuary yeild is used like the 3 month T-bill, 
+    10 year T-note or the 20 year T-bond.
+
+    More at: https://www.investopedia.com/terms/s/sharperatio.asp
+
+    :param w:   float array, asset weights, sum must equal one
+    :param rExp:    float array, asset expected returns corrisponding to w, 
+                    same length as w
+    :param rCoDispSq:   float array 2D, estimated co-dispersion squared of 
+                        returns, nxn with n same as length w, for normally 
+                        distributed data the standard is the co-varriance 
+                        matrix
+    :param annualizeBy: str, what time frame to annualize by, which is the 
+                        time frame used to calculate the returns.
+                            Possibilities
+                                'None' (default)    Do not annualize
+                                'D'                 Annualize by day, rEXPs
+                                                    are in daily returns
+                                                    (note 253 trading days 
+                                                    in year)
+                                'M'                 Annualize by month, rExps
+                                                    are in monthly returns
+                                                    (note 21 trading days in
+                                                    month on average)
+    :return:    float, Sharpe Ratio
+    """
+    rExp, rDisp = portfolioPerformance(w, rExps, rCoDispSq, annualizeBy)
+    return -1 * (rExp - riskFreeRate) / rDisp
 
 
 
