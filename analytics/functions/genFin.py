@@ -185,8 +185,8 @@ def dev(price,exp):
     dev = (price - exp)/exp
     return dev
 
-def port_perform(w, rExps, rCoDispSq, annualizeBy='None'):
-    """Calculates portfolio performance, i.e. overall expected return and 
+def asset_set_perform(w, rExps, rCoDispSq, annualizeBy='None'):
+    """Calculates asset performance, i.e. overall expected return and 
     dispersion, based on statistical metrics of the underlying assets, expected 
     return vector and co-dispersion squared matrix (rExp and rCoDispSq) as well 
     as the portfolio weights (w) for each asset.
@@ -242,7 +242,7 @@ def port_perform(w, rExps, rCoDispSq, annualizeBy='None'):
     return portReturn, portDisp
 
 
-def port_neg_sharpeRatio(w, rExps, rCoDispSq, riskFreeRate=0, annualizeBy=True):
+def asset_set_neg_sharpe_ratio(w, rExps, rCoDispSq, riskFreeRate=0, annualizeBy='None'):
     """Return the Sharpe Ratio for a portfolio defined by its assets' weights, 
     expected returns and squared co-dispersion matrix (w, rExps and rCoDispSq). 
     The Sharpe ratio compares 'excess' returns to volitility. Excess returns
@@ -273,7 +273,7 @@ def port_neg_sharpeRatio(w, rExps, rCoDispSq, riskFreeRate=0, annualizeBy=True):
                                                     month on average)
     :return:    float, Sharpe Ratio
     """
-    rExp, rDisp = portfolioPerformance(w, rExps, rCoDispSq, annualizeBy)
+    rExp, rDisp = asset_set_perform(w, rExps, rCoDispSq, annualizeBy)
     return -1 * (rExp - riskFreeRate) / rDisp
 
 
