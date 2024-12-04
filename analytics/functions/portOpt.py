@@ -61,3 +61,19 @@ def min_dispersion(rExps, rCoDispSq, constraintSet=(0, 1), annualizeBy='None',re
                          method='SLSQP', bounds=bounds, constraints=constraints)
     return result
 
+def calc_efficient_frontier(rExps, rCoDispSq, rTargetRange, riskFreeRate=0, constraintSet=(0, 1), annualizeBy='None'):
+    # init solution vars
+    n = len(rTargetRange)
+    m = len(rExps)
+    weights = np.zeros((n,m))*np.nan
+    disps = np.zeros(n)*np.nan
+
+    for i in range(n):
+        rTarget = rTargetRange[i]
+        optResult = min_dispersion(rExps, rCoDispSq, annualizeBy=annualizeBy,returnTarget=rTarget)
+        weights[i]=optResult['x']
+        disps[i] = optResult['fun']
+
+    return weights, disps
+
+
