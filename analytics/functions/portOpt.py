@@ -38,6 +38,9 @@ def _asset_set_exp(w, rExps, rCoDispSq, annualizeBy='None'):
 
 
 def min_dispersion(rExps, rCoDispSq, constraintSet=(0, 1), annualizeBy='None',returnTarget=''):
+    # note that the targets sent in have to match the annulization 
+    # but the properties are pre annualized and then annualized here.
+    # we need to clean this up
     # number of assets
     n = len(rExps)
     # set the additional, fixed, arguments for the 
@@ -66,14 +69,12 @@ def calc_efficient_frontier(rExps, rCoDispSq, rTargetRange, riskFreeRate=0, cons
     n = len(rTargetRange)
     m = len(rExps)
     weights = np.zeros((n,m))*np.nan
-    disps = np.zeros(n)*np.nan
 
     for i in range(n):
         rTarget = rTargetRange[i]
         optResult = min_dispersion(rExps, rCoDispSq, annualizeBy=annualizeBy,returnTarget=rTarget)
         weights[i]=optResult['x']
-        disps[i] = optResult['fun']
 
-    return weights, disps
+    return weights
 
 

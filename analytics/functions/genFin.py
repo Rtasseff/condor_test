@@ -277,5 +277,39 @@ def asset_set_neg_sharpe_ratio(w, rExps, rCoDispSq, riskFreeRate=0, annualizeBy=
     return -1 * (rExp - riskFreeRate) / rDisp
 
 
+def annualize(rExp,rDisp,annualizeBy):
+    """ Annualize the return expected values and dispersion values.
 
+    :param rExp:    float array, asset expected returns corrisponding to w, 
+                    same length as w
+    :param rCoDispSq:   float array 2D, estimated co-dispersion squared of 
+                        returns, nxn with n same as length w, for normally 
+                        distributed data the standard is the co-varriance 
+                        matrix
+    :param annualizeBy: str, what time frame to annualize by, which is the 
+                        time frame used to calculate the returns.
+                            Possibilities
+                                'None' (default)    Do not annualize
+                                'D'                 Annualize by day, rEXPs
+                                                    are in daily returns
+                                                    (note 253 trading days 
+                                                    in year)
+                                'M'                 Annualize by month, rExps
+                                                    are in monthly returns
+                                                    (note 21 trading days in
+                                                    month on average)
+    :return:    float (array if array passed), 
+                annualized expected and dispersion values
+    """
+
+    if annualizeBy=='None':
+        annFact = 1
+    elif annualizeBy=='M':
+        annFact = 12
+    elif annualizeBy=='D':
+        annFact = 252 # number of open trading days a year
+    else:
+        raise Exception('Unknown way to annualize by '+annualizeBy)
+
+    return (rExp * annFact), (rDisp * np.sqrt(annFact))
 
