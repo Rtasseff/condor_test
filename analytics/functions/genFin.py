@@ -1,7 +1,10 @@
 # general finance functions for Condor workflows
 
 import numpy as np
+import pandas as pd
+
 from . import genStats
+
 
 # a small number that could be considered zero compared to 1.0
 eps = 1e-7
@@ -312,4 +315,5 @@ def annualize(rExp,rDisp,annualizeBy):
         raise Exception('Unknown way to annualize by '+annualizeBy)
 
     return (rExp * annFact), (rDisp * np.sqrt(annFact))
+
 
