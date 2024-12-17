@@ -38,21 +38,29 @@ class PriceLoader:
         # by design we do not keep the whole data table in memory 
         # but we can keep all the info to quickly load what is needed
         self.syms = syms
-    
-    def get_assets_dataFrame(self,syms=None):
+
+    def get_assets_df(self,syms=None):
         # given a list of strings for asset syms return pandas data frame
         # rows as matching dates, cols as assets, values as listed under price header
         # if no syms are passed we assume the preset values, if they exist
         if syms is not None:
-            self.set_target_asset_symbols(syms=syms) 
+            self.set_target_asset_symbols(syms) 
 
         if self.syms is None:
-            raise Exception('No symbol list is set, you must provide a list of assets to load')
+            # we warn about this because we initially intended all 
+            # data loaders have to be defined with target assets in mind
+            # then we moved away to being more general
+            # just in case a workflow already exists that may 
+            # depend on past function, we are at least notifing for this
+            print('Warning: No symbol list is set. All symbols will be used and this could cause confusion in workflows.')
         # get data
-        df = load.multiAssetHist_CSV(path, dateH=self.dateH, priceH=self.priceH, 
+        df = load.multiAssetHist_CSV(self.path, dateH=self.dateH, priceH=self.priceH, 
                 symH=self.symH, sep=self.sep, verb=False)
+        if syms is not None:
+            df = df[syms]
+        else:
+            self.set_target_asset_symbols(syms=df.columns.to_numpy())
 
-        df = df[syms]
         
         return df
 
@@ -62,20 +70,20 @@ class PriceLoader:
         # - 1D array for dates (should be DateTime format)
         # - 1D array for symbols (should be strs)
         # if no syms are passed we assume the preset values, if they exist
-        df = self.get_assets_dataFrame(syms=syms)
+        df = self.get_assets_df(syms=syms)
         
         return utils.df2np(df)
 
-    def get_assets(self,symList=None):
+    def get_assets(self,syms=None):
         # given a list of strings for asset syms return a list of asset objects
         # rows as matching dates, cols as assets, values as listed under price header
         # if no syms are passed we assume the preset values, if they exist
-        
+
         # get the data
-        prices, dates, syms = self.get_assets_np(syms=symList)
+        prices, dates, syms = self.get_assets_np(syms=syms)
 
         # setup the data loader for the assets 
-        priceLoader = PriceLoader(self.path, dateH=self.dataH, priceH=self.priceH, 
+        priceLoader = PriceLoader(self.path, dateH=self.dateH, priceH=self.priceH, 
                 symH=self.symH, sep=self.sep)
 
 
@@ -84,7 +92,7 @@ class PriceLoader:
         assets = []
         for i in range(n):
             # modify dataloader for this single asset 
-            priceLoader.set_assets([syms[i]])
+            priceLoader.set_target_asset_symbols([syms[i]])
             data = TimeCourse(dates,prices[:,i],name=self.priceH)
             # at some point we may want to provide an option to the 
             # user so that the name of the price header column 
@@ -98,6 +106,9 @@ class PriceLoader:
             # why require the user to loop through and load each seperatly 
             assets.append(Asset(syms[i], priceLoader, prices=data))
 
+
+        return assets
+
         
 
 
@@ -108,20 +119,15 @@ class TimeCourse:
         # assuming time as a numpy array of DateTime objects
         # values is a numpy array of corrisponding values
         # name is arbitrary 
+        if len(times) != len(values):
+            print(len(values))
+            print(len(times))
+            raise Exception('A TimeCourse must have the same number of values as times.')
         self.times = times
         self.values = values
         self.name = name
         self.lastUpdated = datetime.datetime.now() # need to double check format
 
-#class Return():
-#    return is a special version of time course - need to inherate 
-#    initalize the object just with the properties
-#    we should me the note (below) on space vs time to the top of this files
-#    returns
-#    expectedReturn
-#    returnDispersion
-#    returnParameters - maybe this is a dictionary??
-#        frequency, period, method, timeframe, metric ...
 
 class Asset:
     def __init__(self, sym, priceLoader, prices=None):
@@ -193,13 +199,46 @@ class Asset:
         return(stamp)
 
 
-#    def calc_returns(self, *args , **kwargs):
-#        # a little open for mess, but we are pushing off all the logic
-#        # and choices to a returns object
-#        self.returns = Returns.__init__(*args, **args)
+    def calc_returns(self, timeFrame='M',metric='Relative'):
+        # a little open for mess, but we are pushing off all the logic
+        # and choices to a returns object
+        self.returns = Returns(self.prices, timeFrame=timeFrame, metric=metric)
 
             
 
+class Returns(TimeCourse):
+    def __init__(self,prices,timeFrame='M',metric='Relative'):
+        # prices is a TimeCourse object
+        if timeFrame == 'D':
+            timePeriod = 1
+        elif timeFrame == 'M':
+            timePeriod = 21
+        elif timeFrame == 'Y':
+            timePeriod = 21*12
+        else:
+            raise Exception('The time frame '+timeFrame+' is not known.')
+
+        # *** we are assuming every entry is a day and they are in temporal order
+        # in the futrue we should check this first ***
+        values = gf.returns(prices.values, period=timePeriod, metric=metric)
+        times = prices.times[timePeriod:]
+
+        super().__init__(times, values, name = timeFrame+'ly '+metric+' Returns')
+        
+
+
+
+
+
+
+#    return is a special version of time course - need to inherate 
+#    initalize the object just with the properties
+#    we should me the note (below) on space vs time to the top of this files
+#    returns
+#    expectedReturn
+#    returnDispersion
+#    returnParameters - maybe this is a dictionary??
+#        frequency, period, method, timeframe, metric ...
 
 
 
