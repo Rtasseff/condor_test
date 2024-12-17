@@ -3,7 +3,16 @@
 # There is no warranty or guarantee of any kind 
 
 # Analytics dir path *USER SET*
+# in the future may want to change this to assume it is the above dir 
+# regardless of path
 analyticsDir = '/Users/rtasseff/projects/condor_test/analytics'
+
+from functions import genStats as gs
+from functions import genFin as gf
+from functions import utils
+
+from data_mining import load
+
 
 import sys
 # adding analytics to the system path
@@ -12,12 +21,6 @@ sys.path.insert(0, analyticsDir)
 
 import numpy as np
 import datetime
-
-from . import genStats as gs
-from . import genFin as gf
-from . import utils
-
-from data_mining import load
 
 class PriceLoader:
     def __init__(self,path, dateH='Date', priceH='Adj Close', 
@@ -41,10 +44,10 @@ class PriceLoader:
         # rows as matching dates, cols as assets, values as listed under price header
         # if no syms are passed we assume the preset values, if they exist
         if syms is not None:
-            self.syms = syms 
+            self.set_target_asset_symbols(syms=syms) 
 
         if self.syms is None:
-            raise Exception('No symbol list is set, you must provide a list of assets to lad')
+            raise Exception('No symbol list is set, you must provide a list of assets to load')
         # get data
         df = load.multiAssetHist_CSV(path, dateH=self.dateH, priceH=self.priceH, 
                 symH=self.symH, sep=self.sep, verb=False)
@@ -85,14 +88,14 @@ class PriceLoader:
             data = TimeCourse(dates,prices[:,i],name=self.priceH)
             # at some point we may want to provide an option to the 
             # user so that the name of the price header column 
-            # in the data file, does not need to be the time
-            # of the time series data object
+            # in the data file, does not need to be the same 
+            # as the time series data object name
             # as we may be intrested in merging asset data from different files
             # that use different string names for the same data
 
             # we pass the price loader (for postarity) but we override it
-            # since we have all the data here why require the user to 
-            # loop through and load each seperatly 
+            # since we have all the data here. 
+            # why require the user to loop through and load each seperatly 
             assets.append(Asset(syms[i], priceLoader, prices=data))
 
         
@@ -108,88 +111,106 @@ class TimeCourse:
         self.times = times
         self.values = values
         self.name = name
-        self.update = datetime.datetime.now() # need to double check format
+        self.lastUpdated = datetime.datetime.now() # need to double check format
 
-class Return():
-    return is a special version of time course - need to inherate 
-    initalize the object just with the properties
-    we should me the note (below) on space vs time to the top of this files
-    returns
-    expectedReturn
-    returnDispersion
-    returnParameters - maybe this is a dictionary??
-        frequency, period, method, timeframe, metric ...
+#class Return():
+#    return is a special version of time course - need to inherate 
+#    initalize the object just with the properties
+#    we should me the note (below) on space vs time to the top of this files
+#    returns
+#    expectedReturn
+#    returnDispersion
+#    returnParameters - maybe this is a dictionary??
+#        frequency, period, method, timeframe, metric ...
 
 class Asset:
-    __init__(self, sym, dataLoader, prices=None, method='Robust'):
+    def __init__(self, sym, priceLoader, prices=None):
         # we have purposfully made this object a bit atypical 
-        # interms of how attributes are set and used directly sometimes and not others
+        # in terms of how attributes are set and used directly sometimes and not others
         # this is to allow future flexibility in memory space vs compute time
-        # for optimization we may not want to always recalculate the return and related properties
+        # for example, in optimization we may not want to 
+        # always recalculate the return and related properties
         # but if we are storing tons of assets in memory for real-time investingating 
         # and ultimatly we only really pick apart a few properties of a few assets
         # we may not want to pre calculate all properties for all assets
         # and just hold them in memory
         #
-        # symbol is the only thing required for an asset 
+        # the symbol and data loader are the only things required for an asset 
         # but folks may want to regularly define it more
         # completly by passing in prices from the start.
         # Prices is just a TimeCourse object for relevant prices
-        # method is a string that will decide how to update stuff
         self.sym = sym
-        self.method = method
-        self.returnExp = None
-        self.returnDisp = None
-        self.returns = # set up a return object but don't calculate anything yet
-        # *** check the symbol and the target asset symbol are the same
+        self.priceLoader = priceLoader
+        self.prices=prices
 
-    def load_prices_from_data(self):
+        if self.priceLoader.syms[0] != sym:
+            self.priceLoader.syms = [sym]
+            raise Warning('Passed PriceLoader has a different symbol definintion than the symbol you passed. PriceLoader, '+  priceLoader.syms[0] +', was overriden with '+sym)
+
+
+
+        # at this time we do not want to precalculate any returns
+        # this will force us to deal with calculation options 
+        # in a direct and explicit way later to avoid confusion on how it is calculated
+        # at the same time we do not want the user to be forced to make these 
+        # decisions if they dont need the return info for this asset
+        self.returns = None
+
 
     def update_prices(self, prices=None):
-        # reload or set prices, clear out other attributes (return stuff), set update time
-        # *** if a price object use that instead of relaoding from data
+        # reload or set prices depnding on what is passed, 
+        # clear out other attributes (return stuff), 
+        # set update time
+
         if prices is None:
-            # *** load prices using data loader
-            # set update time
-        else:
-            # assume prices are set correctly without loading
-            # *** just set prices
+            # no price, then load data
+            # a bit akward but if everything was defined correctly in its setup,
+            # we just need (maybe later we can add some checks to loader):
+            prices = self.priceLoader.get_assets()[0].prices
+        
+        # maybe later we can add some checks here on the prices, 
+        # which by now were passed by the user or set above by the loader
+        self.prices = prices
+
         # celar out other attributes and update time
+        # wait! time was already updated when the TimeCourse object is created
+
+        # incase returns was calculated on a prvious price data we need to reset
+        self.returns = None
+
+        # we could recalculate, but... 
+        # the user may not need the returns, why make them deside on return options
+        # and take up memory space and compute time to get them now
+
+    def get_prices_lastUpdated(self):
+        # get the time stamp for when the prices were last updated
+        if self.prices is None:
+            stamp = None
+            raise Warning('Prices have never been set')
+        else:
+            stamp = self.prices.lastUpdated
+
+        return(stamp)
+
+
+#    def calc_returns(self, *args , **kwargs):
+#        # a little open for mess, but we are pushing off all the logic
+#        # and choices to a returns object
+#        self.returns = Returns.__init__(*args, **args)
+
             
 
 
 
 
-    def update_return_properties(self):
-        # *** use existing price to reset attributes for other properties
-        self.returnExp = 
-        self.returnDisp = gf.returnDisp(self.prices.values, method=self.method)
-        self.updated = datetime.datetime.now() # need to double check format
-
-    def set_prices(self,prices):
-        # override the data loader, erase all properties 
-        self.prices = prices
-        self.update()
-
-    def set_return_parameters(self,method):
-        # *** we will need more than just method, time scale and type of return too
-        self.method = method
-        self.update()
-
-    def calc_returns():
-    def calc_expected_return():
-        gf.returnExp(self.prices.values, method=self.method)
-    def calc_return_dispersion():
 
 
-
-
-class Portfolio:
-    def __init__(self, assets, weights, *args, **kwargs):
-        # a portfolio is just a list of asset objects, assets,
-        # and there weights, floats.
-        # but folks may want to set other attributes from the start.
-        self.assets = assets
-        self.weights = weights
-
+#class Portfolio:
+#    def __init__(self, assets, weights, *args, **kwargs):
+#        # a portfolio is just a list of asset objects, assets,
+#        # and there weights, floats.
+#        # but folks may want to set other attributes from the start.
+#        self.assets = assets
+#        self.weights = weights
+#
 
