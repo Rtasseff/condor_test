@@ -22,16 +22,20 @@ sys.path.insert(0, analyticsDir)
 import numpy as np
 import datetime
 
+# a small number that could be considered zero compared to 1.0
+eps = 1e-7
+
+
 class PriceLoader:
     def __init__(self,path, dateH='Date', priceH='Adj Close', 
-        symH='Symbol', sep=','):
+        symH='Symbol', syms=None, sep=','):
         # A price loader can be created with just the path for the data
         self.path = path
         self.dateH = dateH 
         self.priceH = priceH
         self.symH = symH
         self.sep = sep
-        self.syms = None
+        self.syms = syms
 
     def set_target_asset_symbols(self,syms):
         # You can set the assets for repeated use if you want
@@ -65,6 +69,8 @@ class PriceLoader:
         return df
 
     def get_assets_np(self,syms=None):
+        if syms is not None:
+            self.set_target_asset_symbols(syms) 
         # given a list of strings for asset syms return a set of numpy arrays
         # - price data 2D array rows as matching dates, cols as assets, values as listed under price header
         # - 1D array for dates (should be DateTime format)
@@ -78,21 +84,20 @@ class PriceLoader:
         # given a list of strings for asset syms return a list of asset objects
         # rows as matching dates, cols as assets, values as listed under price header
         # if no syms are passed we assume the preset values, if they exist
+        if syms is not None:
+            self.set_target_asset_symbols(syms) 
 
         # get the data
         prices, dates, syms = self.get_assets_np(syms=syms)
-
-        # setup the data loader for the assets 
-        priceLoader = PriceLoader(self.path, dateH=self.dateH, priceH=self.priceH, 
-                symH=self.symH, sep=self.sep)
 
 
         # start making the assets
         n = len(syms)
         assets = []
         for i in range(n):
-            # modify dataloader for this single asset 
-            priceLoader.set_target_asset_symbols([syms[i]])
+            # setup the data loader for the assets 
+            priceLoader = PriceLoader(self.path, dateH=self.dateH, priceH=self.priceH, 
+                symH=self.symH, syms=[syms[i]], sep=self.sep)
             data = TimeCourse(dates,prices[:,i],name=self.priceH)
             # at some point we may want to provide an option to the 
             # user so that the name of the price header column 
@@ -160,7 +165,10 @@ class Asset:
         # in a direct and explicit way later to avoid confusion on how it is calculated
         # at the same time we do not want the user to be forced to make these 
         # decisions if they dont need the return info for this asset
-        self.returns = None
+        self.returns=None
+        self.expectedReturn = None
+        self.returnDispersion = None
+
 
 
     def update_prices(self, prices=None):
@@ -172,6 +180,7 @@ class Asset:
             # no price, then load data
             # a bit akward but if everything was defined correctly in its setup,
             # we just need (maybe later we can add some checks to loader):
+            print(priceLoader.syms)
             prices = self.priceLoader.get_assets()[0].prices
         
         # maybe later we can add some checks here on the prices, 
@@ -183,6 +192,10 @@ class Asset:
 
         # incase returns was calculated on a prvious price data we need to reset
         self.returns = None
+        self.returns=None
+        self.expectedReturn = None
+        self.returnDispersion = None
+
 
         # we could recalculate, but... 
         # the user may not need the returns, why make them deside on return options
@@ -192,22 +205,52 @@ class Asset:
         # get the time stamp for when the prices were last updated
         if self.prices is None:
             stamp = None
-            raise Warning('Prices have never been set')
         else:
             stamp = self.prices.lastUpdated
 
         return(stamp)
 
+    def get_returns_lastUpdated(self):
+        # get the time stamp for when the prices were last updated
+        if self.returns is None:
+            stamp = None
+        else:
+            stamp = self.returns.lastUpdated
 
-    def calc_returns(self, timeFrame='M',metric='Relative'):
+        return(stamp)
+
+
+
+    def update_returns(self, timeFrame='M', metric='Relative', method='Robust'):
         # a little open for mess, but we are pushing off all the logic
         # and choices to a returns object
-        self.returns = Returns(self.prices, timeFrame=timeFrame, metric=metric)
+
+        if self.get_prices_lastUpdated() is None:
+            raise Exception('Prices have never been updated.  You need prices to calculate the returns.')
+        self.returns = Returns(self.prices, timeFrame=timeFrame, metric=metric, 
+                method=method)
+        self.expectedReturn = self.returns.calc_expected()
+        self.returnDispersion = self.returns.calc_dispersion()
+
+
+    def update(self, timeFrame='M', metric='Relative', method='Robust'):
+        self.update_prices()
+        self.update_returns()
+
+    def get_prices(self):
+        # returns the prices as a TimeCourse object 
+        # 'safer' to use than just refereing to the attribute
+        if self.prices is None:
+            # no prices yet. Load them
+            self.update_prices()
+
+        return self.prices
+
 
             
 
 class Returns(TimeCourse):
-    def __init__(self,prices,timeFrame='M',metric='Relative'):
+    def __init__(self, prices, timeFrame='M', metric='Relative', method='Robust'):
         # prices is a TimeCourse object
         if timeFrame == 'D':
             timePeriod = 1
@@ -224,32 +267,203 @@ class Returns(TimeCourse):
         times = prices.times[timePeriod:]
 
         super().__init__(times, values, name = timeFrame+'ly '+metric+' Returns')
+                
+        self.method = method
+
+    def calc_expected(self):
+        return gf.returnExp(self.values, method=self.method)
+
+    def calc_dispersion(self):
+        # added a way to return co-dispersion squared if this is a matrix
+        x = self.values
+        if len(x.shape)==2:
+            y = gf.returnCoDispSq(x,method=self.method) 
+        else:
+            y = gf.returnDisp(x, method=self.method)
+
+        return y
         
 
 
 
 
+class Portfolio:
+    def __init__(self, assets, weights, priceLoader=None):
+        # a portfolio is just a list of asset objects, assets,
+        # and there weights, floats.
+        # assets can be defined as a string of symbols iff there
+        # is a priceLoader defined. This enables loading of all 
+        # asset data from a single file, which can a bit faster
+        # and easier for the user assuming a proper data flat file exists
+        # We note that Portfolio looks a lot like an advanced version of 
+        # the Asset object. We may want to force it to be a subclass?
+
+        # if assets are handed, it is possible that they already have data
+        # we could preset a prices matrix easily with existing data
+        # the only downside is that it could mean that not all prices 
+        # were gathered at the same time so some may be more updated
+        # the speed difference is trivial for now but lets note for the future
+        # setting the prices here if assets are handed directly to gain some speed
+
+        self.assets = assets
+        self.weights = weights
+        self.priceLoader = priceLoader
+        self.prices = None
+        self.returns = None
+        self.expectedReturn = None
+        self.returnDispersion = None
+        self.expectedReturnArray = None
+        self.returnCoDispersionSqMatrix = None
+
+        # parameters we may want to persist later
+        self.annualizeBy=None
+        # *** I dont think we need these anymore
+        self.method=None
+        self.metric=None
+        self.timeFrame=None
 
 
-#    return is a special version of time course - need to inherate 
-#    initalize the object just with the properties
-#    we should me the note (below) on space vs time to the top of this files
-#    returns
-#    expectedReturn
-#    returnDispersion
-#    returnParameters - maybe this is a dictionary??
-#        frequency, period, method, timeframe, metric ...
+
+
+        if type(self.assets[0]) is str and self.priceLoader is None:
+            raise Exception('If assets are defined by symbols you must define a PriceLoader to get the data for the assets.  A single file with all asset data must exist. Otherwise assets must be a list of Asset objects')
+
+        delta = np.abs(sum(weights)-1)
+        if delta > eps:
+            raise Exception('Weights must sum to 1. You are off by '+str(delta))
+
+    def update_prices(self):
+        # Update all the prices from data and clear out derived info 
+        if type(self.assets[0]) is str:
+            # a direct load from one data source
+            # at some point we may want to create plug in new asset objects into assets?
+            values, dates, syms = self.priceLoader.get_assets_np(syms=self.assets)
+            # although not originally designed for it, we can still use TimeCourse
+            data = TimeCourse(dates,values,name=self.priceLoader.priceH)
+
+        else:
+            # assuming these are correct asset objects in a list
+            # need to loop through to trigger the update of all data
+            for i in range( len(self.assets) ):
+                self.assets[i].update_prices()
+            # get table from the list 
+            df = utils.asset_list2df(self.assets)
+            # convert to numpys
+            values, dates, syms = utils.df2np(df)
+            # although not originally designed for it, we can still use TimeCourse
+            data = TimeCourse(dates,values,name=self.assets[0].prices.name)
+
+
+        
+        self.prices = data
+        self.returns=None
+        self.expectedReturn = None
+        self.returnDispersion = None
+        self.expectedReturnArray = None
+        self.returnCoDispersionSqMatrix = None
+
+    def get_returns_lastUpdated(self):
+        # get the time stamp for when the prices were last updated
+        if self.returns is None:
+            stamp = None
+        else:
+            stamp = self.returns.lastUpdated
+
+        return(stamp)
+
+    def get_prices_lastUpdated(self):
+        # get the time stamp for when the prices were last updated
+        if self.prices is None:
+            stamp = None
+        else:
+            stamp = self.prices.lastUpdated
+
+        return(stamp)
+
+
+    def update_returns(self, timeFrame='M', metric='Relative', method='Robust'):
+        # TimeCourse and return functions throughout should be such that 
+        # they naturally handel the multi-asset (matrix) form
+        if self.get_prices_lastUpdated() is None:
+            raise Exception('Prices have never been updated.  You need prices to calculate the returns.')
+        self.returns = Returns(self.prices, timeFrame=timeFrame, metric=metric, 
+                method=method)
+        self.expectedReturnArray = self.returns.calc_expected()
+        self.returnCoDispersionSqMatrix = self.returns.calc_dispersion()
+
+        self.expectedReturn = None
+        self.returnDispersion = None
+        # we may still want to keep the parameters
+        # I am sure there is a better way to do this
+        self.timeFrame=timeFrame
+        # I dont think we need these anymore
+        self.method=method
+        self.metric=metric
+
+
+    def set_weights(self, weights):
+        delta = np.abs(sum(weights)-1)
+        if delta > eps:
+            raise Exception('Weights must sum to 1. You are off by '+str(delta))
+        self.weights = weights
 
 
 
+    def update_properties(self, weights=None, timeFrame='M', metric='Relative', 
+            method='Robust', annualize=True):
+        # This literlly updates everything starting with prices from data and then returns.
+        # One can change the weights if a new set of weigths is passed
+        self.update_prices()
+        self.update_returns(timeFrame=timeFrame, metric=metric, method=method)
+
+        # update the weights if passed
+        if weights is not None:
+            self.set_weights(weights)
+
+        if annualize and timeFrame!='Y':
+            # we want to annualize, but we dont have returns in years
+            annualizeBy = timeFrame
+        else:
+            # no need to annualize
+            annualizeBy = 'None'
+
+        self.expectedReturn, self.returnDispersion = gf.asset_set_perform(self.weights, 
+                self.expectedReturnArray, self.returnCoDispersionSqMatrix, annualizeBy=annualizeBy)
+
+        # save for later
+        self.annualize = annualize
+        
 
 
-#class Portfolio:
-#    def __init__(self, assets, weights, *args, **kwargs):
-#        # a portfolio is just a list of asset objects, assets,
-#        # and there weights, floats.
-#        # but folks may want to set other attributes from the start.
-#        self.assets = assets
-#        self.weights = weights
-#
+    def calc_peroperties(self, w=None, annualize=None):
+        # this assumes asset expected returns and dispersion matrix exist, 
+        # which would have required prices and returns.
+        # You can only call this after a set of returns for assets has been calculated.
+        # Here we only calculate the portfolio properties based on the wieghts, 
+        # which can be cahnged with this call if weights are passed
+        # This is faster than updating everything over and over if
+        # such a function is needed to be looped into a optimization workflow.
+        # Note that you can manually pass a choice to annualize
+        # if you set it to true, it will choose a baisis based on 
+        # how the returns were calculated (timeFrame in anything that updates returns).
+        # if it is not set it uses the past setting when the returns were calculated.
+        # If somehow nothing is set (which should not work) then it defulats to False
+        
+        if self.get_returns_lastUpdated() is None:
+            raise Exception('Returns have never been updated.  You need returns to calculate the properties.')
+
+        if annualize is None:
+            if self.annualizeBy is None:
+                self.annualizeBy = 'None' 
+        else:
+            self.annualizeBy = annualizeBy
+
+        # update the weights if passed
+        if weights is not None:
+            self.set_weights(weights)
+
+        self.expectedReturn, self.returnDispersion = gf.asset_set_perform(self.weights, 
+                self.expectedReturnArray, self.returnCoDispersionSqMatrix, annualizeBy=annualizeBy)
+
+
 

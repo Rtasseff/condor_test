@@ -3,7 +3,7 @@
 
 
 import numpy as np
-
+import pandas as pd
 
 
 def ns2days(ns):
@@ -40,35 +40,38 @@ def asset_list2df(assets):
     symH = 'Symbol'
     dateH = 'Date'
     asset = assets[0]
-    priceH = asset.prices.name
+    priceH = asset.get_prices().name
     sym = asset.sym
-    prices =  asset.prices.values
-    dates = asset.prices.times
+    prices =  asset.get_prices().values
+    dates = asset.get_prices().times
     n = len(prices)
     if n != len(dates):
         raise Exception('Asset '+sym+' has a different number of times and values')
-    tmp = np.stack(([sym]*n,dates,prices),axis=1)
-    df = pd.DataFrame(data=tmp,columns=[symH,dateH,prcieH])
+    #tmp = np.stack(([sym]*n,dates,prices),axis=1)
+    tmp = { symH : [sym]*n , dateH : dates , priceH : prices }
+    #df = pd.DataFrame(data=tmp,columns=[symH,dateH,prcieH])
+    df = pd.DataFrame(tmp)
 
     for i in range(1,len(assets),1):
         asset = assets[i]
-        if priceH != asset.prices.name:
+        if priceH != asset.get_prices().name:
             raise Exception('Cannot join asset values with different time course names')
         sym = asset.sym
-        prices =  asset.prices.values
-        dates = asset.prices.times
+        prices =  asset.get_prices().values
+        dates = asset.get_prices().times
         n = len(prices)
         if n != len(dates):
             raise Exception('Asset '+sym+' has a different number of times and values')
 
-        tmp = np.stack(([sym]*n,dates,prices),axis=1)
-        df = df.append(tmp)
+        #tmp = np.stack(([sym]*n,dates,prices),axis=1)
+        tmp = pd.DataFrame( { symH : [sym]*n , dateH : dates , priceH : prices } )
+        df = pd.concat([df,tmp], ignore_index=True)
 
     # rearrange table as dates vs symbols
-    data = data.pivot_table(index=dateH, columns=symH, values=priceH)
+    data = df.pivot_table(index=dateH, columns=symH, values=priceH)
 
 
-    return df
+    return data
 
 
 
