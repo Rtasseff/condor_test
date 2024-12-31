@@ -244,8 +244,7 @@ def asset_set_perform(w, rExps, rCoDispSq, annualizeBy='None'):
 
     return portReturn, portDisp
 
-
-def asset_set_neg_sharpe_ratio(w, rExps, rCoDispSq, riskFreeRate=0, annualizeBy='None'):
+def asset_set_sharpe_ratio(w, rExps, rCoDispSq, riskFreeRate=0, annualizeBy='None'):
     """Return the Sharpe Ratio for a portfolio defined by its assets' weights, 
     expected returns and squared co-dispersion matrix (w, rExps and rCoDispSq). 
     The Sharpe ratio compares 'excess' returns to volitility. Excess returns
@@ -277,7 +276,48 @@ def asset_set_neg_sharpe_ratio(w, rExps, rCoDispSq, riskFreeRate=0, annualizeBy=
     :return:    float, Sharpe Ratio
     """
     rExp, rDisp = asset_set_perform(w, rExps, rCoDispSq, annualizeBy)
-    return -1 * (rExp - riskFreeRate) / rDisp
+
+    sr = (rExp - riskFreeRate) / rDisp
+    return sr
+
+
+def asset_set_neg_sharpe_ratio(w, rExps, rCoDispSq, riskFreeRate=0, annualizeBy='None'):
+    """Return the negative (-1x) Sharpe Ratio for a portfolio defined by its assets' 
+    weights, expected returns and squared co-dispersion matrix (w, rExps and rCoDispSq). 
+    The Sharpe ratio compares 'excess' returns to volitility. Excess returns
+    are the portfolios returns compared to a risk free, i.e.guaranteed, return
+    (riskFreeRate). Typically a US Tresuary yeild is used like the 3 month T-bill, 
+    10 year T-note or the 20 year T-bond. 
+
+    The negative value is typically used in optimization (minimize the ngative 
+    to maximize the positive).
+
+    More at: https://www.investopedia.com/terms/s/sharperatio.asp
+
+    :param w:   float array, asset weights, sum must equal one
+    :param rExp:    float array, asset expected returns corrisponding to w, 
+                    same length as w
+    :param rCoDispSq:   float array 2D, estimated co-dispersion squared of 
+                        returns, nxn with n same as length w, for normally 
+                        distributed data the standard is the co-varriance 
+                        matrix
+    :param annualizeBy: str, what time frame to annualize by, which is the 
+                        time frame used to calculate the returns.
+                            Possibilities
+                                'None' (default)    Do not annualize
+                                'D'                 Annualize by day, rEXPs
+                                                    are in daily returns
+                                                    (note 253 trading days 
+                                                    in year)
+                                'M'                 Annualize by month, rExps
+                                                    are in monthly returns
+                                                    (note 21 trading days in
+                                                    month on average)
+    :return:    float, Sharpe Ratio
+    """
+    sr = asset_set_sharpe_ratio(w, rExps, rCoDispSq, 
+            riskFreeRate=riskFreeRate, annualizeBy=annualizeBy)
+    return -1 * sr
 
 
 def annualize(rExp,rDisp,annualizeBy):
@@ -301,11 +341,12 @@ def annualize(rExp,rDisp,annualizeBy):
                                                     are in monthly returns
                                                     (note 21 trading days in
                                                     month on average)
+                                'Y'                 Annualize by year, same as None
     :return:    float (array if array passed), 
                 annualized expected and dispersion values
     """
 
-    if annualizeBy=='None':
+    if annualizeBy=='None' or annualizeBy=='Y':
         annFact = 1
     elif annualizeBy=='M':
         annFact = 12

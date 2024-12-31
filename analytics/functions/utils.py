@@ -33,10 +33,20 @@ def ns2days(ns):
     
     return days
 
+def asset_list_syms(assetList):
+    """return a list of symbols for this list of assets in the same order"""
+    syms = []
+    for asset in assetList:
+        syms.append(asset.sym)
+
+    return syms
+
 def asset_list2df(assets):
     """Take a list of Asset objects, assets, and create a price DataFrame.  
     A 2D pandas df for the data with rows as dates and cols as the price values
     """
+    # need to capture the ordering 
+    assetSyms = asset_list_syms(assets)
     symH = 'Symbol'
     dateH = 'Date'
     asset = assets[0]
@@ -69,6 +79,9 @@ def asset_list2df(assets):
 
     # rearrange table as dates vs symbols
     data = df.pivot_table(index=dateH, columns=symH, values=priceH)
+    # the pivot is great for lineing up dates and formating the table 
+    # but it will reorder the symbols abc, so we want the original order to persist
+    data = data[assetSyms]
 
 
     return data
