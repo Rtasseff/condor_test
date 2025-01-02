@@ -31,5 +31,3 @@ class EF:
 #    def __init__(self,
 
 #class Ploter
-
-
