@@ -312,26 +312,56 @@ class Returns(TimeCourse):
 
 class Portfolio:
     def __init__(self, assets, weights, priceLoader=None):
-        # a portfolio is just a list of asset objects, assets,
-        # and there weights, floats.
+        # a portfolio is just a list of assets (Assets or strs)
+        # and there weights (floats).
         # assets can be defined as a string of symbols iff there
         # is a priceLoader defined. This enables loading of all 
         # asset data from a single file, which can a bit faster
         # and easier for the user assuming a proper data flat file exists
+        # After initilization a set of Asset objects will be created. 
+        # At this time, all future updates will still go through 
+        # the individual assets (see update_price below).
+        #
         # We note that Portfolio looks a lot like an advanced version of 
         # the Asset object. We may want to force it to be a subclass?
 
-        # if assets are handed, it is possible that they already have data
-        # we could preset a prices matrix easily with existing data
+        # if assets are handed, we use the data they have 
+        # if there is no price data in an individual asset, 
+        # a price update for that asset is triggered
         # the only downside is that it could mean that not all prices 
         # were gathered at the same time so some may be more updated
         # the speed difference is trivial for now but lets note for the future
         # setting the prices here if assets are handed directly to gain some speed
 
-        self.assets = assets
-        self.weights = weights
-        self.priceLoader = priceLoader
-        self.prices = None
+        delta = np.abs(sum(weights)-1)
+        if delta > eps:
+            raise Exception('Weights must sum to 1. You are off by '+str(delta))
+        if len(weights) != len(assets):
+            raise Exception('Weights and assets must have the same length')
+
+        self.weights = np.array(weights) # just in case ;)
+
+        # set prices from assets (utils can handle Assets or strs)
+        self.prices = utils.asset_list2prices(assets,priceLoader) 
+
+        # *** this is built in as default temporarily as in Asset ***
+        self.sampInt = 20
+
+        # deal with assets if strs
+        if type(assets[0]) is str:
+            if priceLoader is None:
+                raise Exception('If assets are defined by symbols you must define a PriceLoader to get the data for the assets.  A single file with all asset data must exist. Otherwise assets must be a list of Asset objects')
+            # need to make new assets out of str symbols
+            self.assets = []
+            for sym in assets:
+                self.assets.append(Asset(sym,priceLoader))
+        else:
+            # assuming this is already an asset object
+            self.assets = assets
+
+
+        
+        # book keeping stuff        
         self.returns = None
         self.expectedReturn = None
         self.returnDispersion = None
@@ -345,43 +375,30 @@ class Portfolio:
         self.metric=None
         self.timeFrame=None
 
-        # *** this is built in as default temporarily as in Asset ***
-        self.sampInt = 20
-
-
-
-
-        if type(self.assets[0]) is str and self.priceLoader is None:
-            raise Exception('If assets are defined by symbols you must define a PriceLoader to get the data for the assets.  A single file with all asset data must exist. Otherwise assets must be a list of Asset objects')
-
-        delta = np.abs(sum(weights)-1)
-        if delta > eps:
-            raise Exception('Weights must sum to 1. You are off by '+str(delta))
 
     def update_prices(self):
         # Update all the prices from data and clear out derived info 
-        if type(self.assets[0]) is str:
-            # a direct load from one data source
-            # at some point we may want to create plug in new asset objects into assets?
-            values, dates, syms = self.priceLoader.get_assets_np(syms=self.assets)
-            # although not originally designed for it, we can still use TimeCourse
-            data = TimeCourse(dates,values,name=self.priceLoader.priceH)
+        # assuming these are correct asset objects in a list
+        # which should have been dealt with in init
+        # need to loop through to trigger the update of all data
+        # *** Note if there is a price loader set here 
+        # it should indicate that you can load everything from one file
+        # for increased speed.
+        # you could get the prices from utils.asset_list2prices
+        # by passing the sym list (not the assets) and the loader
+        # but then your asset objects prices' could potentally be
+        # out of sync with the updated price matrix,
+        # you would need to recreate a new set of assets too either
+        # with the new prices or with no price
+        # the latter would be odd but it is easier and prvents a sync issue
+        # I am not going to deal with this now 
+        # but if we are commonly calling large asset sets from 
+        # a single file (I doubt it) then this would speed that up a lot***
 
-        else:
-            # assuming these are correct asset objects in a list
-            # need to loop through to trigger the update of all data
-            for i in range( len(self.assets) ):
-                self.assets[i].update_prices()
-            # get table from the list 
-            df = utils.asset_list2df(self.assets)
-            # convert to numpys
-            values, dates, syms = utils.df2np(df)
-            # although not originally designed for it, we can still use TimeCourse
-            data = TimeCourse(dates,values,name=self.assets[0].prices.name)
+        for i in range( len(self.assets) ):
+            self.assets[i].update_prices()
 
-
-        
-        self.prices = data
+        self.prices = utils.asset_list2prices(self.assets)
         self.returns=None
         self.expectedReturn = None
         self.returnDispersion = None
@@ -437,9 +454,8 @@ class Portfolio:
 
     def update_properties(self, weights=None, timeFrame='M', metric='Relative', 
             method='Robust', annualize=False):
-        # This literlly updates everything starting with prices from data and then returns.
+        # This updates all critical info starting with asset returns to portfolio returns.
         # One can change the weights if a new set of weigths is passed
-        self.update_prices()
         self.update_returns(timeFrame=timeFrame, metric=metric, method=method)
 
         # update the weights if passed
@@ -611,7 +627,7 @@ class Portfolio:
             if np.abs(negSR + sr) > 0.0001 :
                 print(negSR)
                 print(sr)
-                raise Exception('The Sharpe ratio function in the optimizer is not matching the one in the portfolio, could be a code issues somewhere, contact the developer.')
+                raise Exception('The Sharpe ratio function in the optimizer is not matching the one in the portfolio, could be code issues somewhere, contact the developer.')
 
         return expectedReturn, returnDispersion 
 

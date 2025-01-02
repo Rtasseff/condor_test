@@ -1,6 +1,12 @@
 # assorted utilities for condor funds
 
 
+# Analytics dir path *USER SET*
+# in the future may want to change this to assume it is the above dir 
+# regardless of path
+analyticsDir = '/Users/rtasseff/projects/condor_test/analytics'
+
+from classes import CondorCoreObs as condor
 
 import numpy as np
 import pandas as pd
@@ -40,6 +46,8 @@ def asset_list_syms(assetList):
         syms.append(asset.sym)
 
     return syms
+
+def sym2asset
 
 def asset_list2df(assets):
     """Take a list of Asset objects, assets, and create a price DataFrame.  
@@ -87,8 +95,34 @@ def asset_list2df(assets):
     return data
 
 
+def asset_list2prices(asset_list,priceLoader=None):
+    # crates a Prices object for for a matrix of the prices of the assets
+    # The asset list can be a list of str symbols or a list of Asset objects
+    # if it is a list of strs then the PriceLoader that points to the full 
+    # dataset must be provided
+    # if it is a list of Assets then we call for a price update ONLY 
+    # when there is no prices in a specific asset
 
+    if type(asset_list[0]) is str:
+        # a direct load from one data source
+        values, dates, syms = priceLoader.get_assets_np(syms=asset_list)
+        # although not originally designed for it, we can still use TimeCourse
+        prices = TimeCourse(dates,values,name=priceLoader.priceH)
 
+    else:
+        # assuming these are correct asset objects in a list
+        # need to loop through to trigger the update if no data yet
+        for asset in asset_list:
+            if asset.prices is None:
+                asset.update_prices()
+        # get table from the list 
+        df = asset_list2df(asset_list)
+        # convert to numpys
+        values, dates, syms = utils.df2np(df)
+        # although not originally designed for it, we can still use TimeCourse
+        prices = TimeCourse(dates,values,name=self.assets[0].prices.name)
+
+    return prices
 
 
 
