@@ -551,8 +551,11 @@ class Portfolio:
 
         return sr
 
-    def optimize_sharpe_ratio(self,riskFreeRate=0, annualize=None):
-        # Optimize this portfolio weigths to mazimize its sharpe ratio
+    def optimize(self, target='Sharpe Ratio', riskFreeRate=0, annualize=None):
+        # Optimize this portfolio weigths for target 
+        # options include 
+        # Shapre Ratio - mazimize its sharpe ratio (default)
+        # Dispersion - minimize its dispersion 
         # Sets (overrides) the current portfolio weights to maximize the sr
         # returns the max sr
         if self.get_returns_lastUpdated() is None:
@@ -573,30 +576,44 @@ class Portfolio:
                 annualizeBy = 'None'
         
         # run existing optimizer
-        optResults = po.max_sharpe_ratio(self.expectedReturnArray, 
-                self.returnCoDispersionSqMatrix, riskFreeRate=riskFreeRate,annualizeBy=annualizeBy)
+        if target == 'Sharpe Ratio':
+            optResults = po.max_sharpe_ratio(self.expectedReturnArray, 
+                    self.returnCoDispersionSqMatrix, riskFreeRate=riskFreeRate,
+                    annualizeBy=annualizeBy)
+        elif target == 'Dispersion':
+            optResults = po.min_dispersion(self.expectedReturnArray, 
+                    self.returnCoDispersionSqMatrix,
+                    annualizeBy=annualizeBy)
+        else:
+            raise Exception('Target set for optimization not known: '+target)
 
+        
         # get the weights
-        wSRMax = optResults['x']
+        wOpt = optResults['x']
+
+
         
         # This calculates and sets (overrides) portfolio properties
-        expectedReturn, returnDispersion = self.calc_properties(weights=wSRMax, annualize=annualize)
+        expectedReturn, returnDispersion = self.calc_properties(weights=wOpt, annualize=annualize)
 
-        # calculate the sharpe ratio
-        sr = self.calc_sharpe_ratio(riskFreeRate=riskFreeRate, annualize=annualize)
 
-        # if all is as expected this should be the negative SR
-        negSR = optResults['fun']
-        # let us confirm since it is a relativly fast calc and right now 
-        # condor has lots of moving parts
-        # this can confirm multiple steps at once for concitancy 
-        # *** maybe remove later once a more stable version is reached ***
-        if np.abs(negSR + sr) > 0.0001 :
-            print(negSR)
-            print(sr)
-            raise Exception('The Sharpe ratio function in the optimizer is not matching the one in the portfolio, could be a code issues somewhere, contact the developer.')
+        if target == 'Sharpe Ratio':
+            # let us confirm since it is a relativly fast calc and right now 
+            # condor has lots of moving parts
+            # this can confirm multiple steps at once for concitancy 
+            # *** maybe remove later once a more stable version is reached ***
+    
+            # calculate the sharpe ratio
+            sr = self.calc_sharpe_ratio(riskFreeRate=riskFreeRate, annualize=annualize)
+    
+            # if all is as expected this should be the negative SR
+            negSR = optResults['fun']
+            if np.abs(negSR + sr) > 0.0001 :
+                print(negSR)
+                print(sr)
+                raise Exception('The Sharpe ratio function in the optimizer is not matching the one in the portfolio, could be a code issues somewhere, contact the developer.')
 
-        return sr
+        return expectedReturn, returnDispersion 
 
 
 
