@@ -47,7 +47,6 @@ def asset_list_syms(assetList):
 
     return syms
 
-def sym2asset
 
 def asset_list2df(assets):
     """Take a list of Asset objects, assets, and create a price DataFrame.  
@@ -107,7 +106,7 @@ def asset_list2prices(asset_list,priceLoader=None):
         # a direct load from one data source
         values, dates, syms = priceLoader.get_assets_np(syms=asset_list)
         # although not originally designed for it, we can still use TimeCourse
-        prices = TimeCourse(dates,values,name=priceLoader.priceH)
+        prices = condor.TimeCourse(dates,values,name=priceLoader.priceH)
 
     else:
         # assuming these are correct asset objects in a list
@@ -118,9 +117,9 @@ def asset_list2prices(asset_list,priceLoader=None):
         # get table from the list 
         df = asset_list2df(asset_list)
         # convert to numpys
-        values, dates, syms = utils.df2np(df)
+        values, dates, syms = df2np(df)
         # although not originally designed for it, we can still use TimeCourse
-        prices = TimeCourse(dates,values,name=self.assets[0].prices.name)
+        prices = condor.TimeCourse(dates,values,name=asset_list[0].prices.name)
 
     return prices
 

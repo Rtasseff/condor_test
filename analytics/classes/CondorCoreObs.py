@@ -354,6 +354,8 @@ class Portfolio:
             # need to make new assets out of str symbols
             self.assets = []
             for sym in assets:
+                tmpPriceLoader = priceLoader
+                tmpPriceLoader.set_target_asset_symbols([sym])
                 self.assets.append(Asset(sym,priceLoader))
         else:
             # assuming this is already an asset object
