@@ -48,9 +48,15 @@ def asset_list_syms(assetList):
     return syms
 
 
-def asset_list2df(assets):
+
+
+
+
+
+def asset_list2df(assets, getReturns=False):
     """Take a list of Asset objects, assets, and create a price DataFrame.  
     A 2D pandas df for the data with rows as dates and cols as the price values
+    # you can override this to get returns instead of prices
     """
     # need to capture the ordering 
     assetSyms = asset_list_syms(assets)
@@ -59,8 +65,13 @@ def asset_list2df(assets):
     asset = assets[0]
     priceH = asset.get_prices().name
     sym = asset.sym
-    prices =  asset.get_prices().values
-    dates = asset.get_prices().times
+    if getReturns:
+        prices =  asset.returns.values
+        dates = asset.returns.times
+    else:
+        prices =  asset.get_prices().values
+        dates = asset.get_prices().times
+
     n = len(prices)
     if n != len(dates):
         raise Exception('Asset '+sym+' has a different number of times and values')
@@ -74,8 +85,13 @@ def asset_list2df(assets):
         if priceH != asset.get_prices().name:
             raise Exception('Cannot join asset values with different time course names')
         sym = asset.sym
-        prices =  asset.get_prices().values
-        dates = asset.get_prices().times
+        if getReturns:
+            prices =  asset.returns.values
+            dates = asset.returns.times
+        else:
+            prices =  asset.get_prices().values
+            dates = asset.get_prices().times
+
         n = len(prices)
         if n != len(dates):
             raise Exception('Asset '+sym+' has a different number of times and values')

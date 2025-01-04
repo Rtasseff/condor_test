@@ -7,6 +7,10 @@
 # regardless of path
 analyticsDir = '/Users/rtasseff/projects/condor_test/analytics'
 
+import sys
+# adding analytics to the system path
+sys.path.insert(0, analyticsDir)
+
 from functions import genStats as gs
 from functions import genFin as gf
 from functions import utils
@@ -15,9 +19,6 @@ from functions import portOpt as po
 from data_mining import load
 
 
-import sys
-# adding analytics to the system path
-sys.path.insert(0, analyticsDir)
 
 
 import numpy as np
@@ -153,6 +154,20 @@ class TimeCourse:
     def sample_dates(self):
         return self._sample(self.dates)
 
+# *** retrospectivly I am starting to think there should be either an 
+# AssetSet object that inherits from assets or Assets 
+# should be made flexible enough to handel multiple assets 
+# for asset sets I keep having to gather up all the individual 
+# asset data and then calculate returns seperelty so I can get the 
+# squared co disspersion matrix (there are probably other redundencies)
+# this is redundant and could lead to inconsistancies 
+# after that Portfolio could be a made as an object that 
+# inherets from Asset (or AssetSet)
+# would look a lot cleaner for example a name feature for each could 
+# be asset set as a list of symbols and protfolio as an actual portfolio name ***
+# this is nice also because a portfolio is an asset in a real sense, 
+# an asset of assets and I expect this to follow through other workflows 
+# like joining bonds to stock portfolios to make a super portfolio
 
 class Asset:
     def __init__(self, sym, priceLoader, prices=None):
@@ -292,6 +307,9 @@ class Returns(TimeCourse):
         super().__init__(times, values, name = timeFrame+'ly '+metric+' Returns', sampInt=sampInt)
                 
         self.method = method
+        self.timeFrame = timeFrame
+        self.metric = metric 
+        self.sampInt = sampInt
 
     def calc_expected(self):
         return gf.returnExp(self.sample_values(), method=self.method)
@@ -620,7 +638,6 @@ class Portfolio:
 
 
 
-        return 
 
     def optimize(self, target='Sharpe Ratio', riskFreeRate=0, annualize=None):
         # Find the optimal weights of this portfolio for target  
@@ -666,23 +683,27 @@ class Portfolio:
 
         if returnRange is None:
 
-            # get the min dispersion results 
-            optResults = po.min_dispersion(self.expectedReturnArray, 
-                    self.returnCoDispersionSqMatrix,
-                    annualizeBy=annualizeBy)
-            # get the weights for min disp
-            wOpt = optResults['x']
+            # get the min dispersion weights
+            wOpt = self.optimal(self, target='Dispersion', riskFreeRate=riskFreeRate, 
+                    annualize=annualize)
+
             # calculate the properties for min disp 
             expectedReturn_minDisp, returnDispersion_minDisp = gf.asset_set_perform(wOpt, 
                 self.expectedReturnArray, self.returnCoDispersionSqMatrix, 
                 annualizeBy=annualizeBy)
 
+            # note that optimize could have combined the two steps above into 
+            # one but it would have changed the portfolio to the min disp
+            # here the portfolio is unchanged while we investigate the possiblity
+
 
             # set the range from min dispersion to max single asset
             returnRange = (expectedReturn_minDisp, max(self.expectedReturnArray))
 
-        EF = Curves.EF(self.assets, returnRange, 
+        self.EF = Curves.EF(self.assets, returnRange, 
                 riskFreeRate=riskFreeRate, annualizeBy=annualizeBy)
+
+        return self.EF
 
 
 
