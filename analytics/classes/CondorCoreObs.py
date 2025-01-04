@@ -447,10 +447,15 @@ class Portfolio:
 
 
     def set_weights(self, weights):
+        # setting weights will clear out weight dependnet properties
         delta = np.abs(sum(weights)-1)
         if delta > eps:
             raise Exception('Weights must sum to 1. You are off by '+str(delta))
         self.weights = weights
+
+        self.expectedReturn = None
+        self.returnDispersion = None
+
 
 
 
@@ -569,13 +574,14 @@ class Portfolio:
 
         return sr
 
-    def optimize(self, target='Sharpe Ratio', riskFreeRate=0, annualize=None):
-        # Optimize this portfolio weigths for target 
+    def optimal(self, target='Sharpe Ratio', riskFreeRate=0, annualize=None):
+        # Finds the optimal weights of this portfolio for target  
         # options include 
         # Shapre Ratio - mazimize its sharpe ratio (default)
         # Dispersion - minimize its dispersion 
-        # Sets (overrides) the current portfolio weights to maximize the sr
-        # returns the max sr
+        # Does not override anything, old wieghts will still be inplace
+        # if you want to optimize this portfolio in full use optimize
+        # returns the weights
         if self.get_returns_lastUpdated() is None:
             raise Exception('No returns set for this portfolio.  You must first update returns.')
 
@@ -609,29 +615,80 @@ class Portfolio:
         # get the weights
         wOpt = optResults['x']
 
+        return wOpt
 
-        
+
+
+
+        return 
+
+    def optimize(self, target='Sharpe Ratio', riskFreeRate=0, annualize=None):
+        # Find the optimal weights of this portfolio for target  
+        # options include 
+        # Shapre Ratio - mazimize its sharpe ratio (default)
+        # Dispersion - minimize its dispersion 
+        # Sets (overrides) the current portfolio weights to maximize the sr
+        # returns the expected return and return dispersion for the portfolio
+
         # This calculates and sets (overrides) portfolio properties
-        expectedReturn, returnDispersion = self.calc_properties(weights=wOpt, annualize=annualize)
+        wOpt = self.optimal(target=target, riskFreeRate=riskFreeRate, annualize=annualize)
+        expectedReturn, returnDispersion = self.calc_properties(weights=wOpt, 
+                annualize=annualize)
 
 
-        if target == 'Sharpe Ratio':
-            # let us confirm since it is a relativly fast calc and right now 
-            # condor has lots of moving parts
-            # this can confirm multiple steps at once for concitancy 
-            # *** maybe remove later once a more stable version is reached ***
-    
-            # calculate the sharpe ratio
-            sr = self.calc_sharpe_ratio(riskFreeRate=riskFreeRate, annualize=annualize)
-    
-            # if all is as expected this should be the negative SR
-            negSR = optResults['fun']
-            if np.abs(negSR + sr) > 0.0001 :
-                print(negSR)
-                print(sr)
-                raise Exception('The Sharpe ratio function in the optimizer is not matching the one in the portfolio, could be code issues somewhere, contact the developer.')
+        return expectedReturn, returnDispersion
 
-        return expectedReturn, returnDispersion 
+    def calc_efficient_frontier(self,returnRange = None, riskFreeRate=0, annualize=None):
+        # Calculate the efficent frontier for this portfolio 
+        # you can pass in a range of returns to calculate over
+        # by a touple with (min return, max return)
+        # the default will be min dispersion to max single asset
+
+        # this is the fourth time I have called similar mess logic on annualize trying to 
+        # make the user interface easier at the cost of this mess
+        # must be a better way to do this or just shove it all in one function
+
+        # we may also want to consider just setting the risk free rate and annualize 
+        # and foricng that to be done before this can even be called
+        # that enforcment could be used in other places and completly eliminate this 
+        # step by having the variables set in self
+        if annualize is None:
+            # go to previous setting
+            annualizeBy = self.timeFrame
+        else:
+            # decide what to do
+            if annualize:
+                # we are annualizing
+                annualizeBy = self.timeFrame
+            else:
+                annualizeBy = 'None'
+
+
+        if returnRange is None:
+
+            # get the min dispersion results 
+            optResults = po.min_dispersion(self.expectedReturnArray, 
+                    self.returnCoDispersionSqMatrix,
+                    annualizeBy=annualizeBy)
+            # get the weights for min disp
+            wOpt = optResults['x']
+            # calculate the properties for min disp 
+            expectedReturn_minDisp, returnDispersion_minDisp = gf.asset_set_perform(wOpt, 
+                self.expectedReturnArray, self.returnCoDispersionSqMatrix, 
+                annualizeBy=annualizeBy)
+
+
+            # set the range from min dispersion to max single asset
+            returnRange = (expectedReturn_minDisp, max(self.expectedReturnArray))
+
+        EF = Curves.EF(self.assets, returnRange, 
+                riskFreeRate=riskFreeRate, annualizeBy=annualizeBy)
+
+
+
+
+  
+
 
 
 

@@ -21,8 +21,11 @@
 
 
 class EF:
-    def __init__(self, assets, dispersionRange=None):
-        self.assets = assets
+    def __init__(self, assets, returnRange=None, riskFreeRate=0, annualizeBy='None'):
+        # this is the Efficent Frontier given a set of assets
+
+
+        returnTargets = np.linspace(returnRange[0], returnRange[1], 101)
         
 
 
