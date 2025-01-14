@@ -28,6 +28,17 @@ import datetime
 eps = 1e-7
 
 
+# default parameters 
+
+defaultParams = {
+        'metric': 'Relative',
+        'method': 'Robust',
+        'timeFrame': 'M',
+        'annualize': True,
+        'sampInt': 20
+        }
+
+
 class PriceLoader:
     def __init__(self,path, dateH='Date', priceH='Adj Close', 
         symH='Symbol', syms=None, sep=','):
@@ -362,9 +373,7 @@ class Portfolio:
         # set prices from assets (utils can handle Assets or strs)
         self.prices = utils.asset_list2prices(assets,priceLoader) 
 
-        # *** this is built in as default temporarily as in Asset ***
-        self.sampInt = 20
-
+       
         # deal with assets if strs
         if type(assets[0]) is str:
             if priceLoader is None:
@@ -390,10 +399,10 @@ class Portfolio:
 
         # parameters we may want to persist later
         self.annualizeBy=None
-        # *** I dont think we need these anymore
         self.method=None
         self.metric=None
         self.timeFrame=None
+        self.sampInt=None
 
 
     def update_prices(self):
@@ -444,26 +453,72 @@ class Portfolio:
         return(stamp)
 
 
-    def update_returns(self, timeFrame='M', metric='Relative', method='Robust'):
+    def update_returns(self, timeFrame=None, metric=None, method=None, sampInt=None):
         # TimeCourse and return functions throughout should be such that 
         # they naturally handel the multi-asset (matrix) form
+        # upon first use if parameters not passed then use defaulParams defined above
+        # always store params after used which becomes the new default for this instance
+
         if self.get_prices_lastUpdated() is None:
             raise Exception('Prices have never been updated.  You need prices to calculate the returns.')
+
+        # setup params 
+        if timeFrame is None:
+            # use default or preset (if not this, then use what was passed, no action needed)
+            if self.timeFrame is None:
+                # use default
+                timeFrame = defaultParams['timeFrame']
+            else:
+                # we had a preset use that
+                timeFrame = self.timeFrame
+        # set whatever value is used for the future 
+        self.timeFrame =timeFrame
+
+        # setup params 
+        if metric is None:
+            # use default or preset (if not this, then use what was passed, no action needed)
+            if self.metric is None:
+                # use default
+                metric = defaultParams['metric']
+            else:
+                # we had a preset use that
+                metric = self.metric
+        # set whatever value is used for the future 
+        self.metric =metric
+
+        # setup params 
+        if method is None:
+            # use default or preset (if not this, then use what was passed, no action needed)
+            if self.method is None:
+                # use default
+                method = defaultParams['method']
+            else:
+                # we had a preset use that
+                method = self.method
+        # set whatever value is used for the future 
+        self.method =method
+
+        # setup params 
+        if sampInt is None:
+            # use default or preset (if not this, then use what was passed, no action needed)
+            if self.sampInt is None:
+                # use default
+                sampInt = defaultParams['sampInt']
+            else:
+                # we had a preset use that
+                sampInt = self.sampInt
+        # set whatever value is used for the future 
+        self.sampInt =sampInt
+
+        
         self.returns = Returns(self.prices, timeFrame=timeFrame, metric=metric, 
-                method=method, sampInt = self.sampInt)
+                method=method, sampInt=sampInt)
         self.expectedReturnArray = self.returns.calc_expected()
         self.returnCoDispersionSqMatrix = self.returns.calc_dispersion()
 
         self.expectedReturn = None
         self.returnDispersion = None
-        # we may still want to keep the parameters
-        # I am sure there is a better way to do this
-        self.timeFrame=timeFrame
-        # I dont think we need these anymore
-        self.method=method
-        self.metric=metric
-
-
+       
     def set_weights(self, weights):
         # setting weights will clear out weight dependnet properties
         delta = np.abs(sum(weights)-1)
@@ -477,8 +532,8 @@ class Portfolio:
 
 
 
-    def update_properties(self, weights=None, timeFrame='M', metric='Relative', 
-            method='Robust', annualize=False):
+    def update_properties(self, weights=None, timeFrame=None, metric=None, 
+            method=None, annualize=None, sampInt=None):
         # This updates all critical info starting with asset returns to portfolio returns.
         # One can change the weights if a new set of weigths is passed
         self.update_returns(timeFrame=timeFrame, metric=metric, method=method)
@@ -487,22 +542,31 @@ class Portfolio:
         if weights is not None:
             self.set_weights(weights)
 
-        if annualize and timeFrame!='Y':
-            # we want to annualize, but we dont have returns in years
-            annualizeBy = timeFrame
+        # setup params 
+        if annualize is None:
+            # use default or preset (if not this, then use what was passed, no action needed)
+            if self.annualize is None:
+                # use default
+                annualize = defaultParams['annualize']
+            else:
+                # we had a preset use that
+                annualize = self.annualize
+        # set whatever value is used for the future 
+        self.annualize =annualize
+
+        # to get this far a time frame would have been set
+        if annualize:
+            annualizeBy = self.timeFrame
         else:
-            # no need to annualize
             annualizeBy = 'None'
 
         self.expectedReturn, self.returnDispersion = gf.asset_set_perform(self.weights, 
                 self.expectedReturnArray, self.returnCoDispersionSqMatrix, annualizeBy=annualizeBy)
 
-        # save for later
-        self.annualizeBy = annualizeBy
         
 
 
-    def calc_properties(self, weights=None, annualize=None):
+    def calc_properties(self, weights=None, annualize=None, update=True):
         # this assumes asset expected returns and dispersion matrix exist, 
         # which would have required prices and returns.
         # You can only call this after a set of returns for assets has been calculated.
@@ -516,32 +580,46 @@ class Portfolio:
         # if it is not set it uses the past setting when the returns were calculated.
         # If somehow nothing is set (which should not work) then it defulats to False
         # in this case we are both returning and overwriting
+        # parameters are also overwritten to be default for this instance
+        # you can avoid all overwriting by setting update to False
         
         if self.get_returns_lastUpdated() is None:
             raise Exception('Returns have never been updated.  You need returns to calculate the properties.')
-        # *** this is messy and I think the logic needs fixin
+        
         if annualize is None:
-            # go to previous setting
+            # use default or preset (if not this, then use what was passed, no action needed)
+            if self.annualize is None:
+                # use default
+                annualize = defaultParams['annualize']
+            else:
+                # we had a preset use that
+                annualize = self.annualize
+        if update:
+            # set whatever value is used for the future 
+            self.annualize =annualize
+
+        # to get this far a time frame would have been set
+        if annualize:
             annualizeBy = self.timeFrame
         else:
-            # decide what to do
-            if annualize:
-                # we are annualizing
-                annualizeBy = self.timeFrame
-            else:
-                annualizeBy = 'None'
+            annualizeBy = 'None'
 
 
         # update the weights if passed
-        if weights is not None:
-            self.set_weights(weights)
+        if weights is None:
+            weights = self.weights
+        else:
+            # assumes weights passed are ligit and use those
+            if update:
+                self.set_weights(weights)
 
-        expectedReturn, returnDispersion = gf.asset_set_perform(self.weights, 
+        expectedReturn, returnDispersion = gf.asset_set_perform(weights, 
                 self.expectedReturnArray, self.returnCoDispersionSqMatrix, 
                 annualizeBy=annualizeBy)
 
-        self.expectedReturn = expectedReturn
-        self.returnDispersion = returnDispersion
+        if update:
+            self.expectedReturn = expectedReturn
+            self.returnDispersion = returnDispersion
 
         return expectedReturn, returnDispersion
 
