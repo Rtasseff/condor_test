@@ -630,7 +630,7 @@ class Portfolio:
         else:
             # assuming it is an asset list
             syms = []
-            for asset in assets:
+            for asset in self.assets:
                 syms.append(asset.sym)
 
         return syms
@@ -732,64 +732,6 @@ class Portfolio:
 
 
         return expectedReturn, returnDispersion
-
-    def calc_efficient_frontier(self,returnRange = None, riskFreeRate=0, annualize=None):
-        # Calculate the efficent frontier for this portfolio 
-        # you can pass in a range of returns to calculate over
-        # by a touple with (min return, max return)
-        # the default will be min dispersion to max single asset
-
-        # this is the fourth time I have called similar mess logic on annualize trying to 
-        # make the user interface easier at the cost of this mess
-        # must be a better way to do this or just shove it all in one function
-
-        # we may also want to consider just setting the risk free rate and annualize 
-        # and foricng that to be done before this can even be called
-        # that enforcment could be used in other places and completly eliminate this 
-        # step by having the variables set in self
-        if annualize is None:
-            # go to previous setting
-            annualizeBy = self.timeFrame
-        else:
-            # decide what to do
-            if annualize:
-                # we are annualizing
-                annualizeBy = self.timeFrame
-            else:
-                annualizeBy = 'None'
-
-
-        if returnRange is None:
-
-            # get the min dispersion weights
-            wOpt = self.optimal(self, target='Dispersion', riskFreeRate=riskFreeRate, 
-                    annualize=annualize)
-
-            # calculate the properties for min disp 
-            expectedReturn_minDisp, returnDispersion_minDisp = gf.asset_set_perform(wOpt, 
-                self.expectedReturnArray, self.returnCoDispersionSqMatrix, 
-                annualizeBy=annualizeBy)
-
-            # note that optimize could have combined the two steps above into 
-            # one but it would have changed the portfolio to the min disp
-            # here the portfolio is unchanged while we investigate the possiblity
-
-
-            # set the range from min dispersion to max single asset
-            returnRange = (expectedReturn_minDisp, max(self.expectedReturnArray))
-
-        self.EF = Curves.EF(self.assets, returnRange, 
-                riskFreeRate=riskFreeRate, annualizeBy=annualizeBy)
-
-        return self.EF
-
-
-
-
-  
-
-
-
 
 
 
