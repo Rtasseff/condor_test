@@ -613,6 +613,7 @@ class Portfolio:
             if update:
                 self.set_weights(weights)
 
+        
         expectedReturn, returnDispersion = gf.asset_set_perform(weights, 
                 self.expectedReturnArray, self.returnCoDispersionSqMatrix, 
                 annualizeBy=annualizeBy)

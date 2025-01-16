@@ -71,11 +71,15 @@ class EF:
             # get the min dispersion weights
             wOpt = portfolio.optimal(target='Dispersion', riskFreeRate=riskFreeRate, 
                     annualize=annualize)
-
             expectedReturn_minDisp, returnDispersion_minDisp = portfolio.calc_properties(weights=wOpt, 
                     annualize=annualize, update=False)
 
-            returnRange = (expectedReturn_minDisp, max(portfolio.expectedReturnArray))
+            returns = portfolio.expectedReturnArray
+            dispersions = np.sqrt(np.diag(portfolio.returnCoDispersionSqMatrix))
+        if annualize:
+            returns, dispersions = gf.annualize(returns,dispersions,portfolio.timeFrame)
+
+            returnRange = (expectedReturn_minDisp, max(returns))
 
         returnTargets = np.linspace(returnRange[0], returnRange[1], 101)
 
@@ -185,22 +189,31 @@ class Plotter:
 
         self.annualize = annualize
         self.riskFreeRate = riskFreeRate
-        self.portfolio = portfolio 
+        self.portfolio = portfolio
 
-    def get_curves(self):
-        self.ef = EF(self.portfolio,riskFreeRate=self.riskFreeRate,annualize=self.annualize)
-        self.cal = CAL(self.portfolio,riskFreeRate=self.riskFreeRate,annualize=self.annualize)
-
-    def plot(self, width=660, height=495): 
-
-        # Assets
-        portfolio = self.portfolio
-        syms = portfolio.get_syms()
         returns = portfolio.expectedReturnArray
         dispersions = np.sqrt(np.diag(portfolio.returnCoDispersionSqMatrix))
 
         if self.annualize:
             returns, dispersions = gf.annualize(returns,dispersions,portfolio.timeFrame)
+
+        self.returns_assets = returns
+        self.dispersions_assets = dispersions
+
+
+    def get_curves(self):
+        self.ef = EF(self.portfolio,riskFreeRate=self.riskFreeRate,annualize=self.annualize)
+        self.cal = CAL(self.portfolio,riskFreeRate=self.riskFreeRate,annualize=self.annualize)
+
+    def plot(self, width=675, height=545): 
+
+
+        # Assets
+        portfolio = self.portfolio
+        syms = portfolio.get_syms()
+        returns = self.returns_assets
+        dispersions = self.dispersions_assets
+
 
         # format: change to percentage points and round
         returns = np.round(returns * 100,2)
@@ -208,7 +221,7 @@ class Plotter:
 
 
         text = [
-                f"{sym}: Return: {r}% +/- points {d} ({np.round(r/d,2)}%)" for 
+                f"{sym}: Return: {r}% +/- points {d} ({np.round(d/r * 100,2)}%)" for 
                 sym, r, d in zip(syms, returns, dispersions)
                 ]
         assetPoints = go.Scatter(
@@ -237,7 +250,7 @@ class Plotter:
 
         
         text = [
-                f"Return: {r}% +/- {d} points ({np.round(r/d),2}%)<br>" +
+                f"Return: {r}% +/- {d} points ({np.round(d/r * 100,2)}%)<br>" +
                 "<br>".join([f"{sym}: {w}%" for sym, w in zip(syms, ws)]) for
                 r, d, ws in zip(returns_EF, dispersions_EF, weights_EF)
                 ]
@@ -281,10 +294,10 @@ class Plotter:
             for j in range(len(wSR)):
                 weights_CAL_exp[i,j+1] = wSR[j] * tmp
 
-        weights_CAL_exp = np.round(weights_CAL_exp * 100, 2)
+        weights_CAL_exp = np.round(weights_CAL_exp, 2)
 
         text = [
-                f"Return: {r}% +/- {d} points ({np.round(r/d),2}%)<br>" +
+                f"Return: {r}% +/- {d} points ({np.round(d/r * 100,2)}%)<br>" +
                 "<br>".join([f"{sym}: {w}%" for sym, w in zip(syms_CAL, ws)]) for
                 r, d, ws in zip(returns_CAL, dispersions_CAL, weights_CAL_exp)
                 ]
@@ -313,7 +326,7 @@ class Plotter:
                 x = [0],
                 y = [return_RF],
                 marker = dict(
-                    color='gray',
+                    color='blue',
                     size=10,
                     line = dict (
                         width = 3,
@@ -327,12 +340,11 @@ class Plotter:
 
 
         # Max Sharpe
-
         return_SR, dispersion_SR = portfolio.calc_properties(weights=wSR, 
                 annualize=self.annualize, update=False)
 
-        return_SR = np.round(return_SR, 2)
-        dispersion_SR = np.round(dispersion_SR,2)
+        return_SR = np.round(return_SR * 100, 2)
+        dispersion_SR = np.round(dispersion_SR * 100,2)
 
         msrPoint = go.Scatter(
                 name = 'Optimal Risky Asset Portfolio',
@@ -340,7 +352,7 @@ class Plotter:
                 x = [dispersion_SR],
                 y = [return_SR],
                 marker = dict(
-                    color='black',
+                    color='red',
                     size=10,
                     line = dict (
                         width = 3,
@@ -350,9 +362,37 @@ class Plotter:
                 text = f"Optimal Risky Asset Portfolio<br>Return: {return_SR}% +/- {dispersion_SR} points<br>" + "<br>".join([f"{sym}: {w}%" for sym, w in zip(syms, np.round(wSR * 100, 2))]),
                 hoverinfo = 'text'
                 )
+
+
+        # Min Dispersion
+        wDisp = portfolio.optimal(target='Dispersion', riskFreeRate=self.riskFreeRate, 
+                annualize=self.annualize)
+
+        return_Disp, dispersion_Disp = portfolio.calc_properties(weights=wDisp, 
+                annualize=self.annualize, update=False)
+
+        return_Disp = np.round(return_Disp * 100, 2)
+        dispersion_Disp = np.round(dispersion_Disp * 100,2)
+
+        mdispPoint = go.Scatter(
+                name = 'Min Volatility Risky Portfolio',
+                mode = 'markers',
+                x = [dispersion_Disp],
+                y = [return_Disp],
+                marker = dict(
+                    color='pink',
+                    size=10,
+                    line = dict (
+                        width = 3,
+                        color = 'black'
+                        )
+                    ),
+                text = f"Minimum Volitility Risky Portfolio<br>Return: {return_Disp}% +/- {dispersion_Disp} points<br>" + "<br>".join([f"{sym}: {w}%" for sym, w in zip(syms, np.round(wDisp * 100, 2))]),
+                hoverinfo = 'text'
+                )
         # plot
 
-        data = [assetPoints, efPoints, calPoints, rfPoint, msrPoint]
+        data = [assetPoints, efPoints, calPoints, rfPoint, msrPoint, mdispPoint]
 
         annualizeText = ''
         if self.annualize: 

@@ -222,6 +222,7 @@ def asset_set_perform(w, rExps, rCoDispSq, annualizeBy='None'):
                         risk
     """
 
+
     # ensure that weights add to one
     if np.abs(1 - np.sum(w)) > eps:
         raise Exception('Weights in w do not add to one: '+str(sum(w)))
